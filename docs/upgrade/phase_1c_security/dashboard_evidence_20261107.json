@@ -1,0 +1,74 @@
+{
+  "recorded_at_utc": "2026-11-07T12:49:37.323760+00:00",
+  "source": "Authorized existing Supabase dashboard session; native accessibility metadata only",
+  "identity": {
+    "organization": "Bunvathana876",
+    "project": "blue-panda-demo",
+    "branch": "main PRODUCTION",
+    "general_project_id_present": true,
+    "general_project_id_equals_dashboard_url_reference": true,
+    "reviewed_connection_reference_matches": true,
+    "comparison_method": "64-bit FNV-1a reference fingerprint comparison across tools; reference and URLs omitted",
+    "reference_or_private_url_recorded": false
+  },
+  "data_api": {
+    "observed_at_utc": "2026-11-07T12:45:05.968Z",
+    "enabled": true,
+    "selected_exposed_schemas": [
+      "graphql_public",
+      "public"
+    ],
+    "selected_sensitive_tables": [
+      "public.users",
+      "public.user_sessions",
+      "public.refresh_tokens"
+    ],
+    "automatically_expose_new_tables": true,
+    "extra_search_path": [
+      "public",
+      "extensions"
+    ],
+    "save_disabled_after_inspection": true,
+    "protection_gate": "FAIL",
+    "protection_basis": "Observed exposure settings plus preserved 2026-11-07T11:02:38.963944+00:00 SQL privilege/RLS audit; no fresh SQL or HTTP row query"
+  },
+  "graphql": {
+    "integration_observed_at_utc": "2026-11-07T12:46:46.687Z",
+    "integration_install_action_offered": true,
+    "extension_observed_at_utc": "2026-11-07T12:47:56.439Z",
+    "pg_graphql_toggle": "off",
+    "available_extension_version": "1.6.2",
+    "ui_message": "Install extension to use GraphiQL",
+    "standard_pg_graphql_route_inactive_gate": "PASS",
+    "custom_resolvers_or_external_graphql": "UNVERIFIED",
+    "http_denial": "UNVERIFIED"
+  },
+  "backup": {
+    "plan": "Free",
+    "scheduled_backups_ui": "Free Plan does not include project backups.",
+    "pitr_ui": "Point in Time Recovery is a Pro Plan add-on",
+    "restore_new_project_ui": "Requires Pro Plan and above and physical backups enabled",
+    "managed_recovery_point_available": "FAIL",
+    "offsite_manual_backup_availability": "UNVERIFIED",
+    "isolated_restore_completed": false
+  },
+  "render": {
+    "dashboard_access": "Sign-in page",
+    "authentication_blocker": true,
+    "sign_in_attempted": false,
+    "active_instance_count": null,
+    "runtime_probe_executed": false,
+    "role_compatibility": "UNVERIFIED"
+  },
+  "boundaries": {
+    "database_connections": 0,
+    "application_row_requests": 0,
+    "settings_saves_or_toggles": 0,
+    "extension_installs": 0,
+    "backup_exports_or_restores": 0,
+    "deployments": 0,
+    "credential_rotations": 0,
+    "raw_ui_or_screenshots_saved": false,
+    "secrets_or_private_urls_recorded": false
+  }
+}

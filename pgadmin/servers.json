@@ -1,7 +1,16 @@
 {
   "Servers": {
     "1": {
-      "Name": "E-Commerce PostgreSQL",
+      "Name": "Blue Panda Database (Host PostgreSQL 5433)",
+      "Group": "Servers",
+      "Host": "host.docker.internal",
+      "Port": 5433,
+      "MaintenanceDB": "ecommerce_db",
+      "Username": "ecommerce_user",
+      "SSLMode": "prefer"
+    },
+    "2": {
+      "Name": "Docker Container Database (if active on 5432)",
       "Group": "Servers",
       "Host": "postgres",
       "Port": 5432,

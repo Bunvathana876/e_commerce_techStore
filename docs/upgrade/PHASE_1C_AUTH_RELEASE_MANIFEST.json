@@ -1,0 +1,1493 @@
+{
+  "generated_at_utc": "2026-11-07T08:26:50.460003+00:00",
+  "status": "HOLD; preparation only; no approved commit or deploy",
+  "hash_algorithm": "SHA-256 over exact current file bytes; no real environment or credential hashes included",
+  "scope": "auth change inventory plus supporting existing files; not a deployable source archive",
+  "repositories": {
+    "backend": {
+      "head": "ee3f547295687a0a1e9612eb90cf0a50b2787d70",
+      "branch": "main",
+      "reviewed_files": [
+        {
+          "path": ".env.example",
+          "category": "auth_change",
+          "sha256": "ab742073f56eee582f29347fa982fe43fddd15ef4d61c283a9fd898535f3a28e"
+        },
+        {
+          "path": "app/api/v1/routes/auth.py",
+          "category": "auth_change",
+          "sha256": "5242f285ca3064bf40894c918b58cb8601d34a41f22a3f87d8b280ab10d44a02"
+        },
+        {
+          "path": "app/api/v1/routes/users.py",
+          "category": "auth_change",
+          "sha256": "aeaa8e9a003109a9b48d48222569865fb2b8613806e86df884679833ccd0931e"
+        },
+        {
+          "path": "app/core/config.py",
+          "category": "auth_change",
+          "sha256": "edda018563eb9e6b2c36dd17e20b20cd501b3947d9ef663cf6d1e4ebcc8dae82"
+        },
+        {
+          "path": "app/core/dependencies.py",
+          "category": "auth_change",
+          "sha256": "09db2e136a6d47db3418ca3f306e63274fb6dd39871fb69a107c4505e24d3abc"
+        },
+        {
+          "path": "app/core/security.py",
+          "category": "auth_change",
+          "sha256": "82da68f81635739dfcd7bbed4d122e78a857bdebcd36a410fbfc145aa34a0d54"
+        },
+        {
+          "path": "app/core/auth_errors.py",
+          "category": "auth_change",
+          "sha256": "a0f39c1d6ff09449fcd92f67f1dbdaf80a3f2b204f5d2cd7e1a62730597e436f"
+        },
+        {
+          "path": "app/models/user.py",
+          "category": "auth_change",
+          "sha256": "f7d19cad1b81dd8ddb325b6db14f792319b7df3ab7a2d96ddaf3a6da3367a611"
+        },
+        {
+          "path": "app/schemas/auth.py",
+          "category": "auth_change",
+          "sha256": "00caecfc64ea3a98c9855d3962617df59c4ebf64c6401cd763472b1c7399744a"
+        },
+        {
+          "path": "app/services/auth_service.py",
+          "category": "auth_change",
+          "sha256": "5fd71a3e1c06c8cc18b20630357872064c7ed3c919fd482c841d6ee9d8354bcb"
+        },
+        {
+          "path": "app/services/auth_session_service.py",
+          "category": "auth_change",
+          "sha256": "3481343092c66eae4eac7aa1adde092eec76053d48b683053a17ee36fb58c362"
+        },
+        {
+          "path": "alembic/versions/d7e8f9012abc_add_legacy_token_revocation.py",
+          "category": "auth_change",
+          "sha256": "b62caed17cf99d9b20290f3ded734866d7212e461799d99721c36062cb453778"
+        },
+        {
+          "path": "tests/conftest.py",
+          "category": "auth_change",
+          "sha256": "e211067d4b7eaf50fedcf151fa2b4bb2c5e9cf0084b1cd39fdef2ad08e8ff9a0"
+        },
+        {
+          "path": "tests/test_alembic_config.py",
+          "category": "auth_change",
+          "sha256": "c07f80405c0225a97e6eb11a49fd2a84c0447ee28c8ca3dd2d46dd9e02850054"
+        },
+        {
+          "path": "tests/test_migrations_postgres.py",
+          "category": "auth_change",
+          "sha256": "d0712f50029a335e09b1e02d3c3af5cc879bcc8a9c28efc27a6e1db9e042f1e8"
+        },
+        {
+          "path": "tests/test_session_models.py",
+          "category": "auth_change",
+          "sha256": "d6a4f0b0246bd67df2fd3ddad4ca5a07ebdd3ae75993a370645104ee0c0a8255"
+        },
+        {
+          "path": "tests/test_stock_concurrency.py",
+          "category": "auth_change",
+          "sha256": "b5a05e16dcad1296f5312d3f4884b0696fbb96884863543a20f000ede329d842"
+        },
+        {
+          "path": "tests/test_auth_rollout_defaults.py",
+          "category": "auth_change",
+          "sha256": "21837c02934f699ece955ab4e0632db4005075c6040a397a40c22d6b43ac0491"
+        },
+        {
+          "path": "tests/test_auth_session_concurrency.py",
+          "category": "auth_change",
+          "sha256": "312754f56743e7ccb5bb8ac927b3abb1efbf4b16466c7ca490e108b91dd0bb14"
+        },
+        {
+          "path": "tests/test_auth_sessions.py",
+          "category": "auth_change",
+          "sha256": "7563b12e5fb2d45e9208e6175d5545809cf9a53f0960305628cc22572396e272"
+        },
+        {
+          "path": "scripts/verify_auth_staging.py",
+          "category": "auth_change",
+          "sha256": "b7cc929a8cb82a6c1256201340a61a0fbfda42cde259b946ff3aa02b5c98753f"
+        },
+        {
+          "path": "app/models/session.py",
+          "category": "supporting_context",
+          "sha256": "e3af99abb5cadbe1225e3e774199e3c4e1891e8aa3dfabf64d9d1feef0626ac1"
+        },
+        {
+          "path": "app/db/database.py",
+          "category": "supporting_context",
+          "sha256": "20708e671a49344c22d0689f7613a28d0c1f849f8ca00e93f4d306759b5846bd"
+        },
+        {
+          "path": "app/main.py",
+          "category": "supporting_context",
+          "sha256": "0dbb9e4dbcaae45ce7039749e48cc4f497cb695b839f4aee5c517e3bacf01c1c"
+        },
+        {
+          "path": "app/api/v1/__init__.py",
+          "category": "supporting_context",
+          "sha256": "a970b4fec0d409dbe6e68f3c85c4deb5187738fa02d92eb09738efbc3b7f96c3"
+        },
+        {
+          "path": "app/core/rate_limit.py",
+          "category": "supporting_context",
+          "sha256": "0da0404d3bd91889936b76cfa7e83039115706442ed1f4494dacf3e0f21d73de"
+        },
+        {
+          "path": "app/core/password_policy.py",
+          "category": "supporting_context",
+          "sha256": "87175455a8d06c673becc891544ea25b01bbed83dd80b01b58b2ee92501f4f18"
+        },
+        {
+          "path": "app/schemas/user.py",
+          "category": "supporting_context",
+          "sha256": "1ec4029c70fc0742c06e375fc84ccc460b27d66bb479d70d5f86ed8222f31886"
+        },
+        {
+          "path": "Dockerfile.prod",
+          "category": "supporting_context",
+          "sha256": "9cd93cd7432ec25e28b767385c1d9094bfa8f53996f60460e3bab9bae443a714"
+        },
+        {
+          "path": "requirements.txt",
+          "category": "supporting_context",
+          "sha256": "593a2b1ab5217797f196bae628514f897fdfbc323ce049b4f6a846c36153682b"
+        },
+        {
+          "path": "alembic/env.py",
+          "category": "supporting_context",
+          "sha256": "294bd4c5df1adb69cb472c4508c9a957e204b6ffb803f52b13ba5f2ce7a231f1"
+        },
+        {
+          "path": "alembic.ini",
+          "category": "supporting_context",
+          "sha256": "1de444e5202747246718c3f80264c8fe64eabc697267869670771edb140050fd"
+        },
+        {
+          "path": "tests/test_authorization.py",
+          "category": "supporting_context",
+          "sha256": "ac32944e559ee83f404f0dc520b16f2b676253948baa221707040b98562aa7fc"
+        },
+        {
+          "path": "tests/test_api.py",
+          "category": "supporting_context",
+          "sha256": "bba89cbe6b7cbd912165865e73a152c2c6ce4c82a99954e7bbd53e84caa5e9d2"
+        },
+        {
+          "path": "app/api/v1/routes/sellers.py",
+          "category": "supporting_context",
+          "sha256": "b027abcc179719cefe6214e0c8603edd90be78209268ac5c380b7226135d0fbb"
+        },
+        {
+          "path": "app/api/v1/routes/seller.py",
+          "category": "supporting_context",
+          "sha256": "a73308e496730697f7cc4b72144fc243542278f41e25f342084ef1d39908236c"
+        }
+      ],
+      "dirty_paths": [
+        {
+          "status": " M",
+          "path": ".env.example",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "app/api/v1/routes/auth.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "app/api/v1/routes/users.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "app/core/config.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "app/core/dependencies.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "app/core/security.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "app/models/user.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "app/schemas/auth.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "app/services/auth_service.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "tests/conftest.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "tests/test_alembic_config.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "tests/test_migrations_postgres.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "tests/test_session_models.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "tests/test_stock_concurrency.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": "??",
+          "path": "alembic/versions/d7e8f9012abc_add_legacy_token_revocation.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": "??",
+          "path": "app/core/auth_errors.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": "??",
+          "path": "app/services/auth_session_service.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": "??",
+          "path": "check_supabase_migrations.py",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": "??",
+          "path": "migrate_supabase.py",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": "??",
+          "path": "scripts/__init__.py",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": "??",
+          "path": "scripts/bootstrap_admin.py",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": "??",
+          "path": "scripts/seed_demo_products.py",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": "??",
+          "path": "scripts/verify_auth_staging.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": "??",
+          "path": "test_supabase_connection.py",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": "??",
+          "path": "tests/test_admin_bootstrap.py",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": "??",
+          "path": "tests/test_auth_rollout_defaults.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": "??",
+          "path": "tests/test_auth_session_concurrency.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": "??",
+          "path": "tests/test_auth_sessions.py",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": "??",
+          "path": "tests/test_demo_product_seed.py",
+          "classification": "pre_existing_separate_review"
+        }
+      ]
+    },
+    "storefront": {
+      "head": "04dacabfd6297d133a5e3246fdd5a0ff6f213ab1",
+      "branch": "main",
+      "reviewed_files": [
+        {
+          "path": "src/app/(store)/account/page.tsx",
+          "category": "auth_change",
+          "sha256": "c9e60dd51a3e905345f84a6647d903bb6ea40bf277dc398ba94929dd7ecba1c3"
+        },
+        {
+          "path": "src/components/store/StoreNavbar.tsx",
+          "category": "auth_change",
+          "sha256": "d0c1733dc8453d6150dfa5818a5963f5c43502859d5abbe8a504bb092e03d980"
+        },
+        {
+          "path": "src/lib/api.ts",
+          "category": "auth_change",
+          "sha256": "887cc7b695a9e74e4fe0341384846b541f60e261ebed3e50b7d6df4e13dae3c2"
+        },
+        {
+          "path": "src/lib/auth.ts",
+          "category": "auth_change",
+          "sha256": "ab726b3f407df273ed4ae66ea0b7510f4a267d49bb152931c3fbbe5e4e64d95b"
+        },
+        {
+          "path": "src/lib/__tests__/server-logout.test.mjs",
+          "category": "auth_change",
+          "sha256": "f8a3a0be5f82a5324ee0007b42d6a48588b971a8bf56903f804889a646a0bd06"
+        },
+        {
+          "path": "package.json",
+          "category": "supporting_context",
+          "sha256": "aebc9c9da1e925071aa028e34497011c339065e6642432fdfbb70c60e5ea0bf6"
+        },
+        {
+          "path": "package-lock.json",
+          "category": "supporting_context",
+          "sha256": "0012bcdb3c1450567b3d026a31703247b3cf69669767b4c6b3cfeb19a33afbf1"
+        },
+        {
+          "path": "next.config.ts",
+          "category": "supporting_context",
+          "sha256": "6c15a8a2eac4d2b526b8516ab73275ab7be0fd972585ab5aceb6a5d19fe72c7b"
+        },
+        {
+          "path": "src/lib/store.ts",
+          "category": "supporting_context",
+          "sha256": "df467a48fe5cc6fb739f0ae3054a930b29d5ae6560be0e919735fed0dfa4547f"
+        },
+        {
+          "path": "src/app/(auth)/components/AuthForm.tsx",
+          "category": "supporting_context",
+          "sha256": "e9245a1364ed17974e72ec9a5e82d974424adf551e5569453ac6bec8835496ee"
+        },
+        {
+          "path": "Dockerfile.prod",
+          "category": "supporting_context",
+          "sha256": "6d59965924de80598323f44206850c1f9009b93173ef65bda0e713f3d8fa5899"
+        }
+      ],
+      "dirty_paths": [
+        {
+          "status": " M",
+          "path": "src/app/(store)/account/page.tsx",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "src/components/store/StoreNavbar.tsx",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "src/lib/api.ts",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "src/lib/auth.ts",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": "??",
+          "path": "Dockerfile.prod",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": "??",
+          "path": "src/lib/__tests__/server-logout.test.mjs",
+          "classification": "reviewed_auth_change"
+        }
+      ]
+    },
+    "management": {
+      "head": "869204e5c521f62038c3a4d6d13dcde79d1ee502",
+      "branch": "main",
+      "reviewed_files": [
+        {
+          "path": "src/components/layout/Sidebar.tsx",
+          "category": "auth_change",
+          "sha256": "b3d16a72c3d881faa555b62d7fe3adb1f79fdae93294ddbe8fba04f74b5a5f31"
+        },
+        {
+          "path": "src/components/seller/SellerSidebar.tsx",
+          "category": "auth_change",
+          "sha256": "3345aeb18b1af17332a98b4e7b4de2ae8cb0405fc7252154ca7247a2a818210b"
+        },
+        {
+          "path": "src/lib/api.ts",
+          "category": "auth_change",
+          "sha256": "dcdcb055c7b25b162de993b51e24030d4dc0d25d4e82922c56360771f5c553bb"
+        },
+        {
+          "path": "src/lib/auth.ts",
+          "category": "auth_change",
+          "sha256": "0db4c184a631209bfd664d89ee2b0239364dac1b9543db2e7fb8590ce857e6dc"
+        },
+        {
+          "path": "src/lib/__tests__/server-logout.test.mjs",
+          "category": "auth_change",
+          "sha256": "f8a3a0be5f82a5324ee0007b42d6a48588b971a8bf56903f804889a646a0bd06"
+        },
+        {
+          "path": "package.json",
+          "category": "supporting_context",
+          "sha256": "ce066a64118a83bd647f92cdfce21002d0728998492c56a8fda4baedb7b5d7e0"
+        },
+        {
+          "path": "package-lock.json",
+          "category": "supporting_context",
+          "sha256": "e9cc955efe869357b879d3c05e5687f18bb56de8291ae280077538876605b97a"
+        },
+        {
+          "path": "next.config.ts",
+          "category": "supporting_context",
+          "sha256": "aa34e6332a6964df8065c99cd585d2242dfd1efad70304d22f8261f203c51acf"
+        },
+        {
+          "path": "src/lib/management-session.ts",
+          "category": "supporting_context",
+          "sha256": "754268d7128085ec59ac50e69da32530157b39ae81dbed984707458547a52c9b"
+        },
+        {
+          "path": "src/app/(admin)/admin/layout.tsx",
+          "category": "supporting_context",
+          "sha256": "c03dfd02243bb792ebbebba3ece1ad7e079eaad3a88112a45528e22cc82a0ae3"
+        },
+        {
+          "path": "src/app/(seller)/seller/layout.tsx",
+          "category": "supporting_context",
+          "sha256": "72f1d5814bbc625d180cadf2053c89a606a688fffe4ea5bc6bf736694f599ef0"
+        },
+        {
+          "path": "src/app/(auth)/components/AuthForm.tsx",
+          "category": "supporting_context",
+          "sha256": "fe1b782ba707a4bcdf647fd42cf6f058d34244336737d6f19781a1a4c8c630e0"
+        },
+        {
+          "path": "Dockerfile.prod",
+          "category": "supporting_context",
+          "sha256": "a97ec363c15cb2726a41ef7e67798ac080fd502fb2e3d8ff16860be10b2f7eeb"
+        }
+      ],
+      "dirty_paths": [
+        {
+          "status": " M",
+          "path": "src/components/layout/Sidebar.tsx",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "src/components/seller/SellerSidebar.tsx",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "src/lib/api.ts",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "src/lib/auth.ts",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": "??",
+          "path": "Dockerfile.prod",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": "??",
+          "path": "src/lib/__tests__/server-logout.test.mjs",
+          "classification": "reviewed_auth_change"
+        }
+      ]
+    },
+    "mobile-app": {
+      "head": "539501789d3e4d4a79c11f6dadb5ddbb050552e1",
+      "branch": "main",
+      "reviewed_files": [
+        {
+          "path": "lib/core/network/api_client.dart",
+          "category": "auth_change",
+          "sha256": "249ad022f4f26df8a3b4e1fa255a3bff14ffa0397af11334ba100180bd17d814"
+        },
+        {
+          "path": "lib/features/auth/providers/auth_provider.dart",
+          "category": "auth_change",
+          "sha256": "6de99d33e47298c850d6df1d96dc7b1f6498c356553f30edec63ae824d419a49"
+        },
+        {
+          "path": "lib/features/auth/services/auth_api_service.dart",
+          "category": "auth_change",
+          "sha256": "871d7f3da7503dc329beda994bc2a7bccfcb09400a34a09e8b06c3132da8a19d"
+        },
+        {
+          "path": "lib/features/auth/services/auth_service.dart",
+          "category": "auth_change",
+          "sha256": "7a8bb0a8c96e0d843fc7463b990bb57e5f34aa1c10497a3b23ee0866b7cbf827"
+        },
+        {
+          "path": "test/features/auth/server_logout_test.dart",
+          "category": "auth_change",
+          "sha256": "f730519ea6d05e3ca39588a962e72c19c431051bfd0929f729d2bd7bcca2316d"
+        },
+        {
+          "path": "pubspec.yaml",
+          "category": "supporting_context",
+          "sha256": "126a7ce8b0d352c32da4a0709d369909370836c326ff23a1708789ac05271d4a"
+        },
+        {
+          "path": "pubspec.lock",
+          "category": "supporting_context",
+          "sha256": "aadc6a3f8833a23b379b41462c17474177cb64845c4dc6703ed5de25f500ae64"
+        },
+        {
+          "path": "lib/main.dart",
+          "category": "supporting_context",
+          "sha256": "4df5be4ac244e20a09d7de0c2333790ee0df1abef33d1dc0f974afdf20ad2148"
+        },
+        {
+          "path": "lib/core/constants/api_endpoints.dart",
+          "category": "supporting_context",
+          "sha256": "dafb95f46293d85013e7a3904b52f3384fb44fc695bfa921ff4c41be753396ba"
+        },
+        {
+          "path": "lib/features/profile/screens/profile_screen.dart",
+          "category": "supporting_context",
+          "sha256": "e541ea723904ddc59597e87e3b92938c4be679976f5af83c0ea575bb17a7ab3c"
+        }
+      ],
+      "dirty_paths": [
+        {
+          "status": " M",
+          "path": "analysis_options.yaml",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "ios/Podfile",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "ios/Podfile.lock",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "ios/Runner.xcodeproj/project.pbxproj",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "ios/Runner.xcodeproj/xcshareddata/xcschemes/Runner.xcscheme",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "lib/core/constants/api_endpoints.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "lib/core/network/api_client.dart",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "lib/features/auth/providers/auth_provider.dart",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "lib/features/auth/services/auth_api_service.dart",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "lib/features/auth/services/auth_service.dart",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": " M",
+          "path": "lib/features/cart/services/cart_api_service.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "lib/features/categories/models/category_model.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "lib/features/categories/screens/categories_screen.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "lib/features/categories/widgets/category_card.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "lib/features/home/screens/home_screen.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "lib/features/navigation/main_navigation_screen.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "lib/features/products/models/product_model.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "lib/features/products/providers/product_provider.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "lib/features/products/widgets/product_card.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "lib/features/products/widgets/product_grid.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "lib/features/profile/screens/profile_screen.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "lib/features/profile/settings/screens/settings_screen.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "lib/shared/widgets/promo_banner.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "lib/shared/widgets/promo_banner_carousel.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "pubspec.lock",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "test/core/network/api_network_test.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "test/features/home/home_screen_logo_test.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "test/features/products/product_card_and_home_modernization_test.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": " M",
+          "path": "test/shared/widgets/promo_banner_carousel_test.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": "??",
+          "path": "lib/shared/widgets/app_bottom_nav_bar.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": "??",
+          "path": "lib/shared/widgets/app_search_bar.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": "??",
+          "path": "test/features/auth/server_logout_test.dart",
+          "classification": "reviewed_auth_change"
+        },
+        {
+          "status": "??",
+          "path": "test/features/categories/categories_screen_redesign_test.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": "??",
+          "path": "test/shared/widgets/app_bottom_nav_bar_test.dart",
+          "classification": "pre_existing_separate_review"
+        },
+        {
+          "status": "??",
+          "path": "test/shared/widgets/app_search_bar_test.dart",
+          "classification": "pre_existing_separate_review"
+        }
+      ]
+    }
+  },
+  "previous_reports": [
+    {
+      "path": "docs/upgrade/PHASE_1_SECURE_SESSIONS_REPORT.md",
+      "sha256": "466172c0bba3c6f3970c5ed1314123683ffade6d0abde14c5ed1d4f2af9d9689"
+    },
+    {
+      "path": "docs/upgrade/PHASE_1B_AUTH_CLIENT_INTEGRATION_REPORT.md",
+      "sha256": "5e589c119fe4af9962840dfe49686c15381797d72de758adb06671840b88e3ae"
+    }
+  ],
+  "live_database": {
+    "checked_at_utc": "2026-11-07T08:18:26.600844+00:00",
+    "expected_revision": "a1b2c3d4e5f6",
+    "live_revisions": [
+      "a1b2c3d4e5f6"
+    ],
+    "mode": "READ ONLY; REPEATABLE READ; rollback on completion",
+    "identity": {
+      "expected_database": true,
+      "server_version": "17.11",
+      "transaction_read_only": "on",
+      "isolation": "repeatable read",
+      "database_owner": true
+    },
+    "tls_in_use": true,
+    "counts": {
+      "users": 2,
+      "active_admins": 1,
+      "active_sellers": 0,
+      "active_customers": 1,
+      "sellers": 0,
+      "sessions": 0,
+      "revoked_sessions": 0,
+      "refresh_tokens": 0,
+      "orphan_sessions": 0,
+      "orphan_refresh_tokens": 0
+    },
+    "table_security": [
+      {
+        "table_name": "refresh_tokens",
+        "rls": false,
+        "forced_rls": false,
+        "owned": true,
+        "can_select": true,
+        "can_insert": true,
+        "can_update": true
+      },
+      {
+        "table_name": "sellers",
+        "rls": false,
+        "forced_rls": false,
+        "owned": true,
+        "can_select": true,
+        "can_insert": true,
+        "can_update": true
+      },
+      {
+        "table_name": "user_sessions",
+        "rls": false,
+        "forced_rls": false,
+        "owned": true,
+        "can_select": true,
+        "can_insert": true,
+        "can_update": true
+      },
+      {
+        "table_name": "users",
+        "rls": false,
+        "forced_rls": false,
+        "owned": true,
+        "can_select": true,
+        "can_insert": true,
+        "can_update": true
+      }
+    ],
+    "api_role_grants": [
+      {
+        "role": "anon",
+        "table_name": "refresh_tokens",
+        "can_select": true,
+        "can_insert": true,
+        "can_update": true,
+        "can_delete": true
+      },
+      {
+        "role": "anon",
+        "table_name": "user_sessions",
+        "can_select": true,
+        "can_insert": true,
+        "can_update": true,
+        "can_delete": true
+      },
+      {
+        "role": "anon",
+        "table_name": "users",
+        "can_select": true,
+        "can_insert": true,
+        "can_update": true,
+        "can_delete": true
+      },
+      {
+        "role": "authenticated",
+        "table_name": "refresh_tokens",
+        "can_select": true,
+        "can_insert": true,
+        "can_update": true,
+        "can_delete": true
+      },
+      {
+        "role": "authenticated",
+        "table_name": "user_sessions",
+        "can_select": true,
+        "can_insert": true,
+        "can_update": true,
+        "can_delete": true
+      },
+      {
+        "role": "authenticated",
+        "table_name": "users",
+        "can_select": true,
+        "can_insert": true,
+        "can_update": true,
+        "can_delete": true
+      }
+    ],
+    "custom_hooks": [
+      {
+        "table_name": "refresh_tokens",
+        "triggers": 0,
+        "rules": 0,
+        "policies": 0
+      },
+      {
+        "table_name": "user_sessions",
+        "triggers": 0,
+        "rules": 0,
+        "policies": 0
+      },
+      {
+        "table_name": "users",
+        "triggers": 0,
+        "rules": 0,
+        "policies": 0
+      }
+    ],
+    "constraints": [
+      {
+        "table_name": "refresh_tokens",
+        "type": "f",
+        "definition": "FOREIGN KEY (session_id) REFERENCES user_sessions(session_id) ON DELETE CASCADE",
+        "validated": true
+      },
+      {
+        "table_name": "refresh_tokens",
+        "type": "p",
+        "definition": "PRIMARY KEY (id)",
+        "validated": true
+      },
+      {
+        "table_name": "sellers",
+        "type": "p",
+        "definition": "PRIMARY KEY (id)",
+        "validated": true
+      },
+      {
+        "table_name": "sellers",
+        "type": "f",
+        "definition": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL",
+        "validated": true
+      },
+      {
+        "table_name": "user_sessions",
+        "type": "f",
+        "definition": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE",
+        "validated": true
+      },
+      {
+        "table_name": "user_sessions",
+        "type": "p",
+        "definition": "PRIMARY KEY (id)",
+        "validated": true
+      },
+      {
+        "table_name": "users",
+        "type": "p",
+        "definition": "PRIMARY KEY (id)",
+        "validated": true
+      }
+    ],
+    "indexes": [
+      {
+        "table_name": "refresh_tokens",
+        "index_name": "ix_refresh_tokens_expires_at",
+        "unique": false,
+        "valid": true,
+        "ready": true,
+        "definition": "CREATE INDEX ix_refresh_tokens_expires_at ON public.refresh_tokens USING btree (expires_at)"
+      },
+      {
+        "table_name": "refresh_tokens",
+        "index_name": "ix_refresh_tokens_session_id",
+        "unique": false,
+        "valid": true,
+        "ready": true,
+        "definition": "CREATE INDEX ix_refresh_tokens_session_id ON public.refresh_tokens USING btree (session_id)"
+      },
+      {
+        "table_name": "refresh_tokens",
+        "index_name": "ix_refresh_tokens_token_hash",
+        "unique": true,
+        "valid": true,
+        "ready": true,
+        "definition": "CREATE UNIQUE INDEX ix_refresh_tokens_token_hash ON public.refresh_tokens USING btree (token_hash)"
+      },
+      {
+        "table_name": "refresh_tokens",
+        "index_name": "pk_refresh_tokens",
+        "unique": true,
+        "valid": true,
+        "ready": true,
+        "definition": "CREATE UNIQUE INDEX pk_refresh_tokens ON public.refresh_tokens USING btree (id)"
+      },
+      {
+        "table_name": "sellers",
+        "index_name": "ix_sellers_email",
+        "unique": false,
+        "valid": true,
+        "ready": true,
+        "definition": "CREATE INDEX ix_sellers_email ON public.sellers USING btree (email)"
+      },
+      {
+        "table_name": "sellers",
+        "index_name": "ix_sellers_name",
+        "unique": false,
+        "valid": true,
+        "ready": true,
+        "definition": "CREATE INDEX ix_sellers_name ON public.sellers USING btree (name)"
+      },
+      {
+        "table_name": "sellers",
+        "index_name": "ix_sellers_user_id",
+        "unique": false,
+        "valid": true,
+        "ready": true,
+        "definition": "CREATE INDEX ix_sellers_user_id ON public.sellers USING btree (user_id)"
+      },
+      {
+        "table_name": "sellers",
+        "index_name": "sellers_pkey",
+        "unique": true,
+        "valid": true,
+        "ready": true,
+        "definition": "CREATE UNIQUE INDEX sellers_pkey ON public.sellers USING btree (id)"
+      },
+      {
+        "table_name": "user_sessions",
+        "index_name": "ix_user_sessions_expires_at",
+        "unique": false,
+        "valid": true,
+        "ready": true,
+        "definition": "CREATE INDEX ix_user_sessions_expires_at ON public.user_sessions USING btree (expires_at)"
+      },
+      {
+        "table_name": "user_sessions",
+        "index_name": "ix_user_sessions_session_id",
+        "unique": true,
+        "valid": true,
+        "ready": true,
+        "definition": "CREATE UNIQUE INDEX ix_user_sessions_session_id ON public.user_sessions USING btree (session_id)"
+      },
+      {
+        "table_name": "user_sessions",
+        "index_name": "ix_user_sessions_token_family",
+        "unique": false,
+        "valid": true,
+        "ready": true,
+        "definition": "CREATE INDEX ix_user_sessions_token_family ON public.user_sessions USING btree (token_family)"
+      },
+      {
+        "table_name": "user_sessions",
+        "index_name": "ix_user_sessions_user_id",
+        "unique": false,
+        "valid": true,
+        "ready": true,
+        "definition": "CREATE INDEX ix_user_sessions_user_id ON public.user_sessions USING btree (user_id)"
+      },
+      {
+        "table_name": "user_sessions",
+        "index_name": "pk_user_sessions",
+        "unique": true,
+        "valid": true,
+        "ready": true,
+        "definition": "CREATE UNIQUE INDEX pk_user_sessions ON public.user_sessions USING btree (id)"
+      },
+      {
+        "table_name": "users",
+        "index_name": "ix_users_email",
+        "unique": true,
+        "valid": true,
+        "ready": true,
+        "definition": "CREATE UNIQUE INDEX ix_users_email ON public.users USING btree (email)"
+      },
+      {
+        "table_name": "users",
+        "index_name": "users_pkey",
+        "unique": true,
+        "valid": true,
+        "ready": true,
+        "definition": "CREATE UNIQUE INDEX users_pkey ON public.users USING btree (id)"
+      }
+    ],
+    "auth_columns": {
+      "users": [
+        {
+          "column_name": "id",
+          "data_type": "integer",
+          "character_maximum_length": null,
+          "is_nullable": "NO",
+          "column_default": "nextval('users_id_seq'::regclass)"
+        },
+        {
+          "column_name": "name",
+          "data_type": "character varying",
+          "character_maximum_length": 100,
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "email",
+          "data_type": "character varying",
+          "character_maximum_length": 255,
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "password_hash",
+          "data_type": "character varying",
+          "character_maximum_length": 255,
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "phone",
+          "data_type": "character varying",
+          "character_maximum_length": 30,
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "avatar",
+          "data_type": "character varying",
+          "character_maximum_length": 500,
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "role",
+          "data_type": "character varying",
+          "character_maximum_length": 20,
+          "is_nullable": "NO",
+          "column_default": "'customer'::character varying"
+        },
+        {
+          "column_name": "is_active",
+          "data_type": "boolean",
+          "character_maximum_length": null,
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "created_at",
+          "data_type": "timestamp without time zone",
+          "character_maximum_length": null,
+          "is_nullable": "NO",
+          "column_default": "now()"
+        },
+        {
+          "column_name": "updated_at",
+          "data_type": "timestamp without time zone",
+          "character_maximum_length": null,
+          "is_nullable": "NO",
+          "column_default": "now()"
+        }
+      ],
+      "user_sessions": [
+        {
+          "column_name": "id",
+          "data_type": "integer",
+          "character_maximum_length": null,
+          "is_nullable": "NO",
+          "column_default": "nextval('user_sessions_id_seq'::regclass)"
+        },
+        {
+          "column_name": "session_id",
+          "data_type": "character varying",
+          "character_maximum_length": 36,
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "user_id",
+          "data_type": "integer",
+          "character_maximum_length": null,
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "token_family",
+          "data_type": "character varying",
+          "character_maximum_length": 36,
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "ip_address",
+          "data_type": "character varying",
+          "character_maximum_length": 45,
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "user_agent",
+          "data_type": "character varying",
+          "character_maximum_length": 255,
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "device_name",
+          "data_type": "character varying",
+          "character_maximum_length": 100,
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "is_revoked",
+          "data_type": "boolean",
+          "character_maximum_length": null,
+          "is_nullable": "NO",
+          "column_default": "false"
+        },
+        {
+          "column_name": "revoked_reason",
+          "data_type": "character varying",
+          "character_maximum_length": 50,
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "expires_at",
+          "data_type": "timestamp with time zone",
+          "character_maximum_length": null,
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "created_at",
+          "data_type": "timestamp with time zone",
+          "character_maximum_length": null,
+          "is_nullable": "NO",
+          "column_default": "now()"
+        },
+        {
+          "column_name": "last_activity_at",
+          "data_type": "timestamp with time zone",
+          "character_maximum_length": null,
+          "is_nullable": "NO",
+          "column_default": "now()"
+        }
+      ],
+      "refresh_tokens": [
+        {
+          "column_name": "id",
+          "data_type": "integer",
+          "character_maximum_length": null,
+          "is_nullable": "NO",
+          "column_default": "nextval('refresh_tokens_id_seq'::regclass)"
+        },
+        {
+          "column_name": "session_id",
+          "data_type": "character varying",
+          "character_maximum_length": 36,
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "token_hash",
+          "data_type": "character varying",
+          "character_maximum_length": 64,
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "parent_token_hash",
+          "data_type": "character varying",
+          "character_maximum_length": 64,
+          "is_nullable": "YES",
+          "column_default": null
+        },
+        {
+          "column_name": "is_revoked",
+          "data_type": "boolean",
+          "character_maximum_length": null,
+          "is_nullable": "NO",
+          "column_default": "false"
+        },
+        {
+          "column_name": "expires_at",
+          "data_type": "timestamp with time zone",
+          "character_maximum_length": null,
+          "is_nullable": "NO",
+          "column_default": null
+        },
+        {
+          "column_name": "created_at",
+          "data_type": "timestamp with time zone",
+          "character_maximum_length": null,
+          "is_nullable": "NO",
+          "column_default": "now()"
+        },
+        {
+          "column_name": "used_at",
+          "data_type": "timestamp with time zone",
+          "character_maximum_length": null,
+          "is_nullable": "YES",
+          "column_default": null
+        }
+      ]
+    }
+  },
+  "local_revision_chain": [
+    "f904b613102f",
+    "c4b8d91a2e3f",
+    "a1b2c3d4e5f6",
+    "d7e8f9012abc"
+  ],
+  "required_migrations": [
+    "d7e8f9012abc"
+  ],
+  "http_and_remote_ci": [
+    {
+      "check": "live/health",
+      "http_status": 200,
+      "result": {
+        "status": "healthy"
+      }
+    },
+    {
+      "check": "live/readyz",
+      "http_status": 200,
+      "result": {
+        "status": "ready",
+        "database": "connected"
+      }
+    },
+    {
+      "check": "live/api/auth/me",
+      "http_status": 401
+    },
+    {
+      "check": "live/api/v1/auth/me",
+      "http_status": 401
+    },
+    {
+      "check": "live/api/users",
+      "http_status": 401
+    },
+    {
+      "check": "live/api/v1/users",
+      "http_status": 401
+    },
+    {
+      "check": "invalid bearer/api/auth/me",
+      "http_status": 401
+    },
+    {
+      "check": "invalid bearer/api/v1/auth/me",
+      "http_status": 401
+    },
+    {
+      "check": "management login",
+      "http_status": 200
+    },
+    {
+      "check": "storefront",
+      "http_status": 404
+    },
+    {
+      "check": "backend actions",
+      "http_status": 404
+    },
+    {
+      "check": "backend statuses",
+      "http_status": 404
+    },
+    {
+      "check": "backend checks",
+      "http_status": 404
+    },
+    {
+      "check": "storefront actions",
+      "http_status": 200,
+      "workflow_runs": []
+    },
+    {
+      "check": "storefront statuses",
+      "http_status": 200,
+      "commit_status": {
+        "state": "pending",
+        "total_count": 0,
+        "sha": "04dacabfd6297d133a5e3246fdd5a0ff6f213ab1"
+      }
+    },
+    {
+      "check": "storefront checks",
+      "http_status": 200,
+      "check_runs": []
+    },
+    {
+      "check": "management actions",
+      "http_status": 200,
+      "workflow_runs": []
+    },
+    {
+      "check": "management statuses",
+      "http_status": 200,
+      "commit_status": {
+        "state": "pending",
+        "total_count": 0,
+        "sha": "869204e5c521f62038c3a4d6d13dcde79d1ee502"
+      }
+    },
+    {
+      "check": "management checks",
+      "http_status": 200,
+      "check_runs": []
+    },
+    {
+      "check": "mobile-app actions",
+      "http_status": 404
+    },
+    {
+      "check": "mobile-app statuses",
+      "http_status": 404
+    },
+    {
+      "check": "mobile-app checks",
+      "http_status": 404
+    }
+  ],
+  "vercel_read_only_list": {
+    "storefront": [
+      {
+        "id": null,
+        "url": "blue-panda-storefront-6s87nm5li-vathanabun934-2100s-projects.vercel.app",
+        "state": "READY",
+        "target": "production",
+        "createdAt": 1793957086185,
+        "ready": 1793957137891,
+        "alias": null,
+        "name": "blue-panda-storefront",
+        "git_commit": "04dacabfd6297d133a5e3246fdd5a0ff6f213ab1"
+      }
+    ],
+    "management": [
+      {
+        "id": null,
+        "url": "blue-panda-management-etnfivmwj-vathanabun934-2100s-projects.vercel.app",
+        "state": "READY",
+        "target": "production",
+        "createdAt": 1793962661323,
+        "ready": 1793962774877,
+        "alias": null,
+        "name": "blue-panda-management",
+        "git_commit": "869204e5c521f62038c3a4d6d13dcde79d1ee502"
+      }
+    ]
+  },
+  "local_checks": {
+    "backend": {
+      "passed": 676,
+      "skipped": 2,
+      "warnings": 2,
+      "seconds": 97.92,
+      "runtime": "Python 3.14.1 / PostgreSQL 18.6",
+      "skips": "Redis integration needs port 6389"
+    },
+    "storefront": {
+      "tests_passed": 46,
+      "lint_errors": 0,
+      "lint_warnings": 1,
+      "production_build": "passed with non-live API override"
+    },
+    "management": {
+      "tests_passed": 86,
+      "lint_errors": 0,
+      "lint_warnings": 18,
+      "production_build": "passed with reserved invalid origins"
+    },
+    "flutter": {
+      "tests_passed": 188,
+      "analyze": "no issues"
+    },
+    "web_runtime": "Node 24.19.0 / Next.js 16.4.5",
+    "diff_checks": "root and active repos staged/unstaged passed; retired web staged pre-existing EOF blank line preserved",
+    "read_only_sql_artifact": {
+      "server": "disposable PostgreSQL 18.6 with TCP disabled",
+      "expected_revision_execution": "passed",
+      "unexpected_revision_stops_before_further_inspection": "passed",
+      "read_only_write_denial": "passed",
+      "production_connections": 0
+    }
+  },
+  "preservation": {
+    "baseline_existing_file_count": 719,
+    "existing_file_changes": 0,
+    "real_env_files": "unchanged, untracked, ignored; no values or hashes included",
+    "retired_web": "preserved; excluded from release",
+    "root_pre_existing_changes": "preserved; see report",
+    "git_index_changes": false,
+    "commits_or_pushes": false,
+    "production_writes_or_deploys": false
+  }
+}

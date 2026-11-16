@@ -1,0 +1,44 @@
+{
+  "checked_at_utc": "2026-11-07T13:21:21.456224+00:00",
+  "postgresql": "17.11",
+  "image_id": "sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac",
+  "openssl": "OpenSSL 4.0.3 29 Sep 2026 (Library: OpenSSL 4.0.3 29 Sep 2026)",
+  "production_connections": 0,
+  "synthetic_only": true,
+  "checks": [
+    "two isolated PostgreSQL 17 clusters; remediated synthetic fixture only",
+    "read-only password-free metadata capture; revision drift refused",
+    "CMS AES-256-GCM archive and password-free role metadata round-trip",
+    "wrong recipient and modified ciphertext rejected before any restore",
+    "restore preserves owner/ACL/RLS/policies, columns, indexes, constraints and revoked/consumed fixture history",
+    "fixture role bootstrap, memberships, schema ACL, extensions, default grants and revision match",
+    "plaintext archive stayed in memory/isolated tmpfs; no live data or host dump file"
+  ],
+  "reviewed_sql_sha256": {
+    "apply.sql": "81f98bb0e9223a52d5b33204e3e21af70f0ee51e3d7b28d020a21e761de499f7",
+    "target_guard.sql": "5c0100eff4164531734eda5f6be985e8deb034dfe1cddb79825571d3c197b54a",
+    "deny_assertions.sql": "3b51662a64ad2576f949b8feaf1ba18f8c21b7724149fa506eb6a0ff08143aec"
+  },
+  "temporary_containers_removed": true,
+  "preparation_artifacts_sha256": {
+    "rehearse_recovery.py": "b65c6e0d412b4fe53dc4707fc3087c04966f8d6a8bf7ad36b5e8a387fc14881f",
+    "backup_metadata.sql": "4a8aa47cf6aea9d143882baec0c5ee18bf2a2f17436579a84a0d6268456433c6"
+  },
+  "application_checks": {
+    "command": "rtk .venv/bin/python -m pytest -q tests/test_auth_rollout_defaults.py tests/test_session_models.py",
+    "passed": 22,
+    "warnings": 2,
+    "python": "3.14.1",
+    "database": "isolated temporary SQLite via pytest conftest",
+    "python_3_12_verified": false
+  },
+  "marker_check": {
+    "revision": "d7e8f9012abc",
+    "parent": "a1b2c3d4e5f6",
+    "engine": "temporary SQLite",
+    "nullable_no_backfill": true,
+    "synthetic_existing_fields_preserved": true,
+    "repeat_upgrade_preserves_marker": true,
+    "migration_sha256": "b62caed17cf99d9b20290f3ded734866d7212e461799d99721c36062cb453778"
+  }
+}

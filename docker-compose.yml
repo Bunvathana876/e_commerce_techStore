@@ -6,12 +6,14 @@ services:
     image: postgres:16-alpine
     container_name: ecommerce-postgres
     restart: unless-stopped
+    profiles:
+      - container-db
     environment:
-      POSTGRES_USER: ecommerce_user
-      POSTGRES_PASSWORD: GoPassword_123!
-      POSTGRES_DB: ecommerce_db
+      POSTGRES_USER: ${POSTGRES_USER:-ecommerce_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-GoPassword_123!}
+      POSTGRES_DB: ${POSTGRES_DB:-ecommerce_db}
     ports:
-      - "5433:5432"
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -28,14 +30,18 @@ services:
     image: dpage/pgadmin4:latest
     container_name: ecommerce-pgadmin
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
+        required: false
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@ecommerce.com
-      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL:-admin@ecommerce.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin123}
       PGADMIN_CONFIG_SERVER_MODE: 'False'
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
+      PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
     ports:
       - "5050:80"
     volumes:
@@ -51,17 +57,24 @@ services:
       dockerfile: Dockerfile
     container_name: ecommerce-backend
     restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
+        required: false
     environment:
-      DATABASE_URL: postgresql+psycopg2://ecommerce_user:GoPassword_123!@postgres:5432/ecommerce_db
-      JWT_SECRET_KEY: dev_secret_key_change_me_super_secure_12345
-      JWT_ALGORITHM: HS256
-      ACCESS_TOKEN_EXPIRE_MINUTES: 10080
-      CORS_ORIGINS: '["*"]'
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://ecommerce_user:password@host.docker.internal:5433/ecommerce_db}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-dev_secret_key_change_me_super_secure_12345}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-10080}
+      AUTO_INIT_DB: ${AUTO_INIT_DB:-false}
+      SEED_DEMO_DATA: ${SEED_DEMO_DATA:-false}
+      RUN_MIGRATIONS_ON_STARTUP: ${RUN_MIGRATIONS_ON_STARTUP:-false}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:8000,http://127.0.0.1:3000,http://127.0.0.1:3001,http://10.0.2.2:8000}
     ports:
-      - "8000:8000"
+      - "${BACKEND_HOST_PORT:-8000}:8000"
     volumes:
       - ./backend:/app
       - /app/__pycache__
@@ -73,23 +86,54 @@ services:
       start_period: 10s
 
   # ==========================================
-  # Next.js Web App Frontend Service
+  # Next.js Storefront (Customer-Facing App)
   # ==========================================
-  web:
+  storefront:
     build:
-      context: ./web-app
+      context: ./storefront
       dockerfile: Dockerfile
-    container_name: ecommerce-web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api}
+        NEXT_PUBLIC_MANAGEMENT_URL: ${NEXT_PUBLIC_MANAGEMENT_URL:-http://localhost:3001}
+    container_name: ecommerce-storefront
     restart: unless-stopped
     depends_on:
       backend:
         condition: service_healthy
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8000/api
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api}
+      NEXT_PUBLIC_MANAGEMENT_URL: ${NEXT_PUBLIC_MANAGEMENT_URL:-http://localhost:3001}
     ports:
-      - "3000:3000"
+      - "${STOREFRONT_HOST_PORT:-3000}:3000"
     volumes:
-      - ./web-app:/app
+      - ./storefront:/app
+      - /app/node_modules
+      - /app/.next
+
+  # ==========================================
+  # Next.js Management (Admin & Seller Portal)
+  # ==========================================
+  management:
+    build:
+      context: ./management
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api}
+        NEXT_PUBLIC_STOREFRONT_URL: ${NEXT_PUBLIC_STOREFRONT_URL:-http://localhost:3000}
+    container_name: ecommerce-management
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      PORT: 3001
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000/api}
+      NEXT_PUBLIC_STOREFRONT_URL: ${NEXT_PUBLIC_STOREFRONT_URL:-http://localhost:3000}
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./management:/app
       - /app/node_modules
       - /app/.next
 

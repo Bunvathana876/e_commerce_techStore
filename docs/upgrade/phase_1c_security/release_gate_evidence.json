@@ -1,0 +1,948 @@
+{
+  "checked_at_utc": "2026-11-07T11:02:38.963944+00:00",
+  "identity": {
+    "same_previously_audited_file": true,
+    "supabase_session_pooler": true,
+    "owner_pooler_username": true,
+    "project_ref_format_valid": true,
+    "independent_dashboard_binding_verified": false,
+    ".env_same_target": false,
+    "backend/.env_same_target": false,
+    "client_to_pooler_tls": true
+  },
+  "revisions": [
+    "a1b2c3d4e5f6"
+  ],
+  "connection": [
+    {
+      "expected_database": true,
+      "current_user": "postgres",
+      "session_user": "postgres",
+      "server_version": "17.11",
+      "read_only": "on",
+      "isolation": "repeatable read",
+      "pooler_to_database_tls_pg_stat_ssl": false
+    }
+  ],
+  "tables": [
+    {
+      "relname": "refresh_tokens",
+      "owner": "postgres",
+      "rls": false,
+      "force_rls": false,
+      "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+      "policies": 0
+    },
+    {
+      "relname": "user_sessions",
+      "owner": "postgres",
+      "rls": false,
+      "force_rls": false,
+      "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+      "policies": 0
+    },
+    {
+      "relname": "users",
+      "owner": "postgres",
+      "rls": false,
+      "force_rls": false,
+      "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+      "policies": 0
+    }
+  ],
+  "roles": [
+    {
+      "rolname": "anon",
+      "rolsuper": false,
+      "rolinherit": true,
+      "rolcreaterole": false,
+      "rolcreatedb": false,
+      "rolcanlogin": false,
+      "rolreplication": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "authenticated",
+      "rolsuper": false,
+      "rolinherit": true,
+      "rolcreaterole": false,
+      "rolcreatedb": false,
+      "rolcanlogin": false,
+      "rolreplication": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "authenticator",
+      "rolsuper": false,
+      "rolinherit": false,
+      "rolcreaterole": false,
+      "rolcreatedb": false,
+      "rolcanlogin": true,
+      "rolreplication": false,
+      "rolbypassrls": false
+    },
+    {
+      "rolname": "postgres",
+      "rolsuper": false,
+      "rolinherit": true,
+      "rolcreaterole": true,
+      "rolcreatedb": true,
+      "rolcanlogin": true,
+      "rolreplication": true,
+      "rolbypassrls": true
+    },
+    {
+      "rolname": "service_role",
+      "rolsuper": false,
+      "rolinherit": true,
+      "rolcreaterole": false,
+      "rolcreatedb": false,
+      "rolcanlogin": false,
+      "rolreplication": false,
+      "rolbypassrls": true
+    }
+  ],
+  "memberships": [
+    {
+      "member": "authenticator",
+      "granted_role": "anon",
+      "admin_option": false,
+      "inherit_option": false,
+      "set_option": true
+    },
+    {
+      "member": "authenticator",
+      "granted_role": "authenticated",
+      "admin_option": false,
+      "inherit_option": false,
+      "set_option": true
+    },
+    {
+      "member": "authenticator",
+      "granted_role": "service_role",
+      "admin_option": false,
+      "inherit_option": false,
+      "set_option": true
+    },
+    {
+      "member": "postgres",
+      "granted_role": "anon",
+      "admin_option": true,
+      "inherit_option": true,
+      "set_option": true
+    },
+    {
+      "member": "postgres",
+      "granted_role": "authenticated",
+      "admin_option": true,
+      "inherit_option": true,
+      "set_option": true
+    },
+    {
+      "member": "postgres",
+      "granted_role": "authenticator",
+      "admin_option": true,
+      "inherit_option": true,
+      "set_option": true
+    },
+    {
+      "member": "postgres",
+      "granted_role": "pg_create_subscription",
+      "admin_option": true,
+      "inherit_option": true,
+      "set_option": true
+    },
+    {
+      "member": "postgres",
+      "granted_role": "pg_monitor",
+      "admin_option": true,
+      "inherit_option": true,
+      "set_option": true
+    },
+    {
+      "member": "postgres",
+      "granted_role": "pg_read_all_data",
+      "admin_option": true,
+      "inherit_option": true,
+      "set_option": true
+    },
+    {
+      "member": "postgres",
+      "granted_role": "pg_signal_backend",
+      "admin_option": true,
+      "inherit_option": true,
+      "set_option": true
+    },
+    {
+      "member": "postgres",
+      "granted_role": "service_role",
+      "admin_option": true,
+      "inherit_option": true,
+      "set_option": true
+    },
+    {
+      "member": "postgres",
+      "granted_role": "supabase_privileged_role",
+      "admin_option": false,
+      "inherit_option": true,
+      "set_option": true
+    }
+  ],
+  "schema": [
+    {
+      "nspname": "graphql_public",
+      "owner": "supabase_admin",
+      "acl": "{supabase_admin=UC/supabase_admin,postgres=U*/supabase_admin,anon=U/supabase_admin,authenticated=U/supabase_admin,service_role=U/supabase_admin}"
+    },
+    {
+      "nspname": "public",
+      "owner": "pg_database_owner",
+      "acl": "{pg_database_owner=UC/pg_database_owner,=U/pg_database_owner,postgres=U/pg_database_owner,anon=U/pg_database_owner,authenticated=U/pg_database_owner,service_role=U/pg_database_owner}"
+    }
+  ],
+  "effective_schema": [
+    {
+      "rolname": "anon",
+      "usage": true,
+      "create": false
+    },
+    {
+      "rolname": "authenticated",
+      "usage": true,
+      "create": false
+    },
+    {
+      "rolname": "authenticator",
+      "usage": true,
+      "create": false
+    },
+    {
+      "rolname": "postgres",
+      "usage": true,
+      "create": true
+    },
+    {
+      "rolname": "service_role",
+      "usage": true,
+      "create": false
+    }
+  ],
+  "effective_table": [
+    {
+      "rolname": "anon",
+      "relname": "refresh_tokens",
+      "privilege": "DELETE",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "refresh_tokens",
+      "privilege": "INSERT",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "refresh_tokens",
+      "privilege": "MAINTAIN",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "refresh_tokens",
+      "privilege": "REFERENCES",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "refresh_tokens",
+      "privilege": "SELECT",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "refresh_tokens",
+      "privilege": "TRIGGER",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "refresh_tokens",
+      "privilege": "TRUNCATE",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "refresh_tokens",
+      "privilege": "UPDATE",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "user_sessions",
+      "privilege": "DELETE",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "user_sessions",
+      "privilege": "INSERT",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "user_sessions",
+      "privilege": "MAINTAIN",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "user_sessions",
+      "privilege": "REFERENCES",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "user_sessions",
+      "privilege": "SELECT",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "user_sessions",
+      "privilege": "TRIGGER",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "user_sessions",
+      "privilege": "TRUNCATE",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "user_sessions",
+      "privilege": "UPDATE",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "users",
+      "privilege": "DELETE",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "users",
+      "privilege": "INSERT",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "users",
+      "privilege": "MAINTAIN",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "users",
+      "privilege": "REFERENCES",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "users",
+      "privilege": "SELECT",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "users",
+      "privilege": "TRIGGER",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "users",
+      "privilege": "TRUNCATE",
+      "allowed": true
+    },
+    {
+      "rolname": "anon",
+      "relname": "users",
+      "privilege": "UPDATE",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "refresh_tokens",
+      "privilege": "DELETE",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "refresh_tokens",
+      "privilege": "INSERT",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "refresh_tokens",
+      "privilege": "MAINTAIN",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "refresh_tokens",
+      "privilege": "REFERENCES",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "refresh_tokens",
+      "privilege": "SELECT",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "refresh_tokens",
+      "privilege": "TRIGGER",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "refresh_tokens",
+      "privilege": "TRUNCATE",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "refresh_tokens",
+      "privilege": "UPDATE",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "user_sessions",
+      "privilege": "DELETE",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "user_sessions",
+      "privilege": "INSERT",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "user_sessions",
+      "privilege": "MAINTAIN",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "user_sessions",
+      "privilege": "REFERENCES",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "user_sessions",
+      "privilege": "SELECT",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "user_sessions",
+      "privilege": "TRIGGER",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "user_sessions",
+      "privilege": "TRUNCATE",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "user_sessions",
+      "privilege": "UPDATE",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "users",
+      "privilege": "DELETE",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "users",
+      "privilege": "INSERT",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "users",
+      "privilege": "MAINTAIN",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "users",
+      "privilege": "REFERENCES",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "users",
+      "privilege": "SELECT",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "users",
+      "privilege": "TRIGGER",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "users",
+      "privilege": "TRUNCATE",
+      "allowed": true
+    },
+    {
+      "rolname": "authenticated",
+      "relname": "users",
+      "privilege": "UPDATE",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "refresh_tokens",
+      "privilege": "DELETE",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "refresh_tokens",
+      "privilege": "INSERT",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "refresh_tokens",
+      "privilege": "MAINTAIN",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "refresh_tokens",
+      "privilege": "REFERENCES",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "refresh_tokens",
+      "privilege": "SELECT",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "refresh_tokens",
+      "privilege": "TRIGGER",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "refresh_tokens",
+      "privilege": "TRUNCATE",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "refresh_tokens",
+      "privilege": "UPDATE",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "user_sessions",
+      "privilege": "DELETE",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "user_sessions",
+      "privilege": "INSERT",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "user_sessions",
+      "privilege": "MAINTAIN",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "user_sessions",
+      "privilege": "REFERENCES",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "user_sessions",
+      "privilege": "SELECT",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "user_sessions",
+      "privilege": "TRIGGER",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "user_sessions",
+      "privilege": "TRUNCATE",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "user_sessions",
+      "privilege": "UPDATE",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "users",
+      "privilege": "DELETE",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "users",
+      "privilege": "INSERT",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "users",
+      "privilege": "MAINTAIN",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "users",
+      "privilege": "REFERENCES",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "users",
+      "privilege": "SELECT",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "users",
+      "privilege": "TRIGGER",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "users",
+      "privilege": "TRUNCATE",
+      "allowed": true
+    },
+    {
+      "rolname": "postgres",
+      "relname": "users",
+      "privilege": "UPDATE",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "refresh_tokens",
+      "privilege": "DELETE",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "refresh_tokens",
+      "privilege": "INSERT",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "refresh_tokens",
+      "privilege": "MAINTAIN",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "refresh_tokens",
+      "privilege": "REFERENCES",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "refresh_tokens",
+      "privilege": "SELECT",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "refresh_tokens",
+      "privilege": "TRIGGER",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "refresh_tokens",
+      "privilege": "TRUNCATE",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "refresh_tokens",
+      "privilege": "UPDATE",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "user_sessions",
+      "privilege": "DELETE",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "user_sessions",
+      "privilege": "INSERT",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "user_sessions",
+      "privilege": "MAINTAIN",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "user_sessions",
+      "privilege": "REFERENCES",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "user_sessions",
+      "privilege": "SELECT",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "user_sessions",
+      "privilege": "TRIGGER",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "user_sessions",
+      "privilege": "TRUNCATE",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "user_sessions",
+      "privilege": "UPDATE",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "users",
+      "privilege": "DELETE",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "users",
+      "privilege": "INSERT",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "users",
+      "privilege": "MAINTAIN",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "users",
+      "privilege": "REFERENCES",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "users",
+      "privilege": "SELECT",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "users",
+      "privilege": "TRIGGER",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "users",
+      "privilege": "TRUNCATE",
+      "allowed": true
+    },
+    {
+      "rolname": "service_role",
+      "relname": "users",
+      "privilege": "UPDATE",
+      "allowed": true
+    }
+  ],
+  "column_acl": [],
+  "sequences": [
+    {
+      "relname": "refresh_tokens_id_seq",
+      "owner": "postgres",
+      "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}"
+    },
+    {
+      "relname": "user_sessions_id_seq",
+      "owner": "postgres",
+      "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}"
+    },
+    {
+      "relname": "users_id_seq",
+      "owner": "postgres",
+      "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}"
+    }
+  ],
+  "defaults": [
+    {
+      "creator": "postgres",
+      "schema": "public",
+      "defaclobjtype": "S",
+      "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}"
+    },
+    {
+      "creator": "postgres",
+      "schema": "public",
+      "defaclobjtype": "f",
+      "acl": "{postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}"
+    },
+    {
+      "creator": "postgres",
+      "schema": "public",
+      "defaclobjtype": "r",
+      "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}"
+    },
+    {
+      "creator": "supabase_admin",
+      "schema": "public",
+      "defaclobjtype": "S",
+      "acl": "{postgres=rwU/supabase_admin,anon=rwU/supabase_admin,authenticated=rwU/supabase_admin,service_role=rwU/supabase_admin}"
+    },
+    {
+      "creator": "supabase_admin",
+      "schema": "public",
+      "defaclobjtype": "f",
+      "acl": "{postgres=X/supabase_admin,anon=X/supabase_admin,authenticated=X/supabase_admin,service_role=X/supabase_admin}"
+    },
+    {
+      "creator": "supabase_admin",
+      "schema": "public",
+      "defaclobjtype": "r",
+      "acl": "{postgres=arwdDxtm/supabase_admin,anon=arwdDxtm/supabase_admin,authenticated=arwdDxtm/supabase_admin,service_role=arwdDxtm/supabase_admin}"
+    }
+  ],
+  "policies": [],
+  "api_schema_settings": [
+    {
+      "source": "session",
+      "name": "pgrst.db_schemas",
+      "value": null
+    },
+    {
+      "source": "session",
+      "name": "pgrst.db_anon_role",
+      "value": null
+    }
+  ],
+  "public_functions": [],
+  "dependent_views": [],
+  "extensions": [
+    {
+      "extname": "pgcrypto"
+    }
+  ],
+  "role_zero_row_probes": [
+    {
+      "role": "anon",
+      "table": "users",
+      "select_permitted": true,
+      "rows_returned": 0
+    },
+    {
+      "role": "anon",
+      "table": "user_sessions",
+      "select_permitted": true,
+      "rows_returned": 0
+    },
+    {
+      "role": "anon",
+      "table": "refresh_tokens",
+      "select_permitted": true,
+      "rows_returned": 0
+    },
+    {
+      "role": "authenticated",
+      "table": "users",
+      "select_permitted": true,
+      "rows_returned": 0
+    },
+    {
+      "role": "authenticated",
+      "table": "user_sessions",
+      "select_permitted": true,
+      "rows_returned": 0
+    },
+    {
+      "role": "authenticated",
+      "table": "refresh_tokens",
+      "select_permitted": true,
+      "rows_returned": 0
+    }
+  ],
+  "gate_run": {
+    "production_writes": 0,
+    "supabase_dashboard_verified": false,
+    "render_role_verified": false,
+    "management_credentials_available": false,
+    "supabase_plugin_connected": false,
+    "render_plugin_connected": false,
+    "postgresql17_runtime_available": false,
+    "postgresql17_image_pull_approval": "pending"
+  },
+  "http_gateway_probes": [
+    {
+      "path": "/rest/v1/",
+      "method": "HEAD",
+      "key_supplied": false,
+      "status": 401,
+      "conclusion": "gateway only; Data API configuration unverified"
+    },
+    {
+      "path": "/graphql/v1",
+      "method": "HEAD",
+      "key_supplied": false,
+      "status": 401,
+      "conclusion": "gateway only; Data API configuration unverified"
+    }
+  ]
+}

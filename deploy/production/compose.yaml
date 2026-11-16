@@ -1,0 +1,244 @@
+name: ${COMPOSE_PROJECT_NAME:-blue-panda-production}
+
+services:
+  caddy:
+    image: ${CADDY_IMAGE:?Set CADDY_IMAGE to an approved, pinned Caddy image}
+    restart: unless-stopped
+    init: true
+    depends_on:
+      storefront:
+        condition: service_healthy
+      management:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    environment:
+      ACME_EMAIL: ${ACME_EMAIL:?Set ACME_EMAIL}
+      SHOP_DOMAIN: ${SHOP_DOMAIN:?Set SHOP_DOMAIN}
+      MANAGE_DOMAIN: ${MANAGE_DOMAIN:?Set MANAGE_DOMAIN}
+      API_DOMAIN: ${API_DOMAIN:?Set API_DOMAIN}
+      MAX_REQUEST_BODY_SIZE: ${MAX_REQUEST_BODY_SIZE:-10MB}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - proxy
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  storefront:
+    image: ${STOREFRONT_IMAGE:?Set STOREFRONT_IMAGE to an immutable production image}
+    build:
+      context: ../../storefront
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.example.com/api}
+        NEXT_PUBLIC_MANAGEMENT_URL: ${NEXT_PUBLIC_MANAGEMENT_URL:-https://manage.example.com}
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: "3000"
+    expose:
+      - "3000"
+    networks:
+      - proxy
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /app/.next/cache:size=128m,uid=1001,gid=1001,mode=0755
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  management:
+    image: ${MANAGEMENT_IMAGE:?Set MANAGEMENT_IMAGE to an immutable production image}
+    build:
+      context: ../../management
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://api.example.com/api}
+        NEXT_PUBLIC_STOREFRONT_URL: ${NEXT_PUBLIC_STOREFRONT_URL:-https://shop.example.com}
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      HOSTNAME: 0.0.0.0
+      PORT: "3001"
+    expose:
+      - "3001"
+    networks:
+      - proxy
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+      - /app/.next/cache:size=128m,uid=1001,gid=1001,mode=0755
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3001/').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  backend:
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to an immutable production image}
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile.prod
+    restart: unless-stopped
+    init: true
+    entrypoint: []
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --workers
+      - ${BACKEND_WORKERS:-2}
+      - --proxy-headers
+      - --forwarded-allow-ips
+      - ${TRUSTED_PROXY_IPS:-172.16.0.0/12}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL as a production secret}
+      RATE_LIMIT_STORAGE_URL: ${RATE_LIMIT_STORAGE_URL:-redis://:${REDIS_PASSWORD}@redis:6379/0}
+      RATE_LIMIT_FAIL_OPEN: ${RATE_LIMIT_FAIL_OPEN:-true}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY as a production secret}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set CORS_ORIGINS to the exact HTTPS browser origins}
+      ENABLE_DOCS_IN_PRODUCTION: "false"
+      AUTO_INIT_DB: "false"
+      SEED_DEMO_DATA: "false"
+      UPLOAD_DIR: /var/lib/blue-panda/uploads
+      MAX_UPLOAD_SIZE_BYTES: ${MAX_UPLOAD_SIZE_BYTES:-5242880}
+      MAX_IMAGE_DIMENSION: ${MAX_IMAGE_DIMENSION:-4096}
+      MAX_IMAGE_PIXELS: ${MAX_IMAGE_PIXELS:-16777216}
+    expose:
+      - "8000"
+    volumes:
+      - uploads_data:/var/lib/blue-panda/uploads
+    networks:
+      - proxy
+      - data
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  postgres:
+    image: ${POSTGRES_IMAGE:?Set POSTGRES_IMAGE to an approved, pinned PostgreSQL 16 image}
+    restart: unless-stopped
+    command:
+      - postgres
+      - -c
+      - max_connections=${POSTGRES_MAX_CONNECTIONS:-150}
+      - -c
+      - shared_buffers=${POSTGRES_SHARED_BUFFERS:-256MB}
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD as a production secret}
+      APP_DB_USER: ${APP_DB_USER:-blue_panda_app}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:-}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init.sh:/docker-entrypoint-initdb.d/01-init-app-user.sh:ro
+    networks:
+      - data
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    stop_grace_period: 60s
+
+  redis:
+    image: ${REDIS_IMAGE:-redis:7.4-alpine}
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --requirepass
+      - ${REDIS_PASSWORD:?Set REDIS_PASSWORD as a production secret}
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    networks:
+      - data
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD as a production secret}
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+networks:
+  proxy:
+    name: ${COMPOSE_PROJECT_NAME:-blue-panda-production}_proxy
+  data:
+    name: ${COMPOSE_PROJECT_NAME:-blue-panda-production}_data
+    internal: true
+
+volumes:
+  caddy_data:
+    name: ${COMPOSE_PROJECT_NAME:-blue-panda-production}_caddy_data
+  caddy_config:
+    name: ${COMPOSE_PROJECT_NAME:-blue-panda-production}_caddy_config
+  postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-blue-panda-production}_postgres_data
+  uploads_data:
+    name: ${COMPOSE_PROJECT_NAME:-blue-panda-production}_uploads_data

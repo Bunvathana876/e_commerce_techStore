@@ -1,0 +1,29 @@
+{
+  "checked_at_utc": "2026-11-07T11:24:24.372932+00:00",
+  "postgresql": "17.11",
+  "image_id": "sha256:3540c0362c809df084ffac0ae69fe794515f9de92692f02178bcdce0ef0302ac",
+  "network": "none",
+  "host_mounts": 0,
+  "persistent_volumes": 0,
+  "production_connections": 0,
+  "render_role_verified": false,
+  "reviewed_sql_sha256": {
+    "apply.sql": "81f98bb0e9223a52d5b33204e3e21af70f0ee51e3d7b28d020a21e761de499f7",
+    "rollback.sql": "a300599bfa3172ca605efb69b34468f5b9ae3d3a4b44fcc7cd6ac487e5c1f1dc",
+    "target_guard.sql": "5c0100eff4164531734eda5f6be985e8deb034dfe1cddb79825571d3c197b54a",
+    "deny_assertions.sql": "3b51662a64ad2576f949b8feaf1ba18f8c21b7724149fa506eb6a0ff08143aec",
+    "verify.sql": "24e400f01a7c81a9b7afaaf1c4892c89c8d5ee8e019e22698268dd5b27073400",
+    "inspect.sql": "21753a1f611bee31fa7bab3bb53a504e75795a7d5157bbc38a77adde234e43bd"
+  },
+  "checks": [
+    "missing approval aborts with unchanged ACL/RLS",
+    "revision drift aborts with unchanged ACL/RLS",
+    "2s lock timeout 55P03 leaves ACL/RLS unchanged",
+    "failure after revocations/RLS rolls back the entire transaction",
+    "unchanged apply and 45 API-role SELECT/DML-planning denials pass",
+    "RLS hides populated fixture after accidental SELECT regrant",
+    "non-superuser postgres owner/BYPASSRLS retains fixture CRUD",
+    "rollback restores exact ACL/RLS baseline and preserves fixture history",
+    "reapplication and denial tests pass with fixture history retained"
+  ]
+}

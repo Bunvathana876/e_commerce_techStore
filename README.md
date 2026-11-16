@@ -14,6 +14,7 @@ A modern, production-ready, full-stack E-Commerce platform comprising a **Flutte
 
 - [Overview](#-overview)
 - [System Architecture](#-system-architecture)
+- [Documentation Hub](#-documentation-hub)
 - [Key Features](#-key-features)
   - [Mobile Application (Customer-Facing)](#-mobile-application-customer-facing)
   - [Web Application (Admin & Merchant Portal)](#-web-application-admin--merchant-portal)
@@ -73,6 +74,23 @@ graph TD
 
 ---
 
+## 📚 Documentation Hub
+
+All engineering documentation, architectural specifications, runbooks, and roadmaps are organized under the [`docs/`](docs/README.md) directory:
+
+| Directory | Purpose | Key Documents |
+|---|---|---|
+| [**`docs/architecture/`**](docs/architecture/) | Domain models, marketplace design, and UI/UX specifications | [Marketplace Plan](docs/architecture/MARKETPLACE_ARCHITECTURE_PLAN.md), [Storefront Redesign](docs/architecture/STOREFRONT_UI_REDESIGN_PLAN.md) |
+| [**`docs/deployment/`**](docs/deployment/) | Production runbooks, Docker Compose setups, security audits & hardening | [VPS Runbook](docs/deployment/VPS_DEPLOYMENT_RUNBOOK.md), [Readiness Audit](docs/deployment/PRODUCTION_READINESS_AUDIT.md) |
+| [**`docs/database-and-backend/`**](docs/database-and-backend/) | Database management, migrations, admin account bootstrapping, demo seeding | [Admin Bootstrap](docs/database-and-backend/ADMIN_BOOTSTRAP_PLAN.md), [Demo Seeding](docs/database-and-backend/DEMO_PRODUCT_SEED_PLAN.md) |
+| [**`docs/planning/`**](docs/planning/) | Phased execution trackers (Frontend Separation, Phase 1 Hardening, Marketplace) | [Frontend Separation](docs/planning/frontend-separation/FRONTEND_SEPARATION_FINAL_REPORT.md), [Phase 1](docs/planning/phase-1/PHASE1_PROGRESS.md) |
+| [**`docs/upgrade/`**](docs/upgrade/) | Modernization roadmaps, session-based auth security design, and plans | [Upgrade Roadmap](docs/upgrade/BLUE_PANDA_UPGRADE_ROADMAP.md), [Auth Security](docs/upgrade/PHASE_1C_AUTH_SECURITY_DESIGN.md) |
+| [**`docs/STYLE_GUIDE.md`**](docs/STYLE_GUIDE.md) | Documentation standards, templates, alert boxes, and formatting rules | [Authoring Guide & Templates](docs/STYLE_GUIDE.md) |
+
+> 💡 **Looking for the master index?** Visit the [**Central Documentation Hub (`docs/README.md`)**](docs/README.md).
+
+---
+
 ## ✨ Key Features
 
 ### 📱 Mobile Application (Customer-Facing)
@@ -85,7 +103,14 @@ graph TD
 - **In-App Notifications**: Real-time notifications for order updates, promotions, and account alerts.
 - **User Profile**: Personal profile editing, shipping address book, payment methods, and theme/settings preferences.
 
-### 💻 Web Application (Admin & Merchant Portal)
+### 🌐 Customer Storefront Website (`web-app` — `/`)
+- **Editorial Hero & Flash Deals**: Multi-slide hero showcase, live countdown flash-sale drops, and 1-click claimable promo vouchers (`WELCOME10`, `SAVE20`, `SUMMER15`, `SUPER50`).
+- **Interactive Shop & Instant Search (`⌘K`)**: Command-palette search dialog, multi-criteria catalog filtering (`/shop` by category, verified store, price ceiling, star rating, sale & stock status), and Grid/List toggle.
+- **Product Details & Quick-View Modals**: Native top-layer quick-view dialogs, zoomable product stage (`/product/[id]`), option/size selectors, verified customer reviews, and live review submission.
+- **Slide-Over Bag & Express Checkout**: Real-time `$100` free-shipping progress bar, server + local cart sync, promo code validation, autofill-optimized shipping address form, KHQR / Card / Apple Pay / COD payment options, and animated order confirmation receipts.
+- **Customer Account & Live Order Tracking**: 4-step visual parcel status tracker (`/orders`), saved shipping address book, wishlist sync (`/wishlist`), notifications, and role-aware authentication synced with the Flutter Mobile App.
+
+### 💻 Web Application (Admin & Merchant Portal — `/admin`)
 - **Executive Analytics Dashboard**: KPI metrics (gross revenue, order counts, customer registrations, low-stock warnings) and sales trends.
 - **Product & Catalog Management**: Create, edit, and organize products, multi-tier categories, inventory stock levels, and image gallery uploads.
 - **Order Processing & Fulfillment**: Filter orders by status (`pending`, `processing`, `shipped`, `delivered`, `cancelled`), manage delivery dates, and track shipping.
@@ -184,7 +209,8 @@ flutter run
 
 | Service | URL / Port | Description |
 |---|---|---|
-| **Next.js Web App** | [http://localhost:3000](http://localhost:3000) | Admin & Merchant Portal |
+| **Customer Storefront Website** | [http://localhost:3000](http://localhost:3000) | Blue Panda User Shopping Website |
+| **Admin & POS Portal** | [http://localhost:3000/admin/dashboard](http://localhost:3000/admin/dashboard) | Admin Back-Office & Retail POS |
 | **FastAPI Backend** | [http://localhost:8000](http://localhost:8000) | Core REST API Endpoint |
 | **Interactive Swagger UI** | [http://localhost:8000/docs](http://localhost:8000/docs) | OpenAPI interactive documentation |
 | **Alternative API Docs** | [http://localhost:8000/redoc](http://localhost:8000/redoc) | ReDoc API specifications |
@@ -194,9 +220,14 @@ flutter run
 
 ---
 
-## 🔑 Default Demo Credentials
+## 🔑 Default Demo Credentials (Local Development Only)
 
-The database is pre-seeded with default administrative and customer accounts:
+> [!WARNING]
+> The credentials below are intended solely for local development and offline automated testing.
+> In production environments (`ENVIRONMENT=production`), automatic demo seeding is strictly disabled,
+> and a securely generated `JWT_SECRET_KEY` (minimum 32 characters) along with strong database credentials must be configured via environment variables.
+
+The database is pre-seeded with default administrative and customer accounts for local development:
 
 ### Web Admin Portal
 - **URL**: [http://localhost:3000/login](http://localhost:3000/login)
@@ -243,7 +274,16 @@ The database is pre-seeded with default administrative and customer accounts:
 
 ```text
 e-commerce/
-├── backend/                        # FastAPI REST Backend
+├── docs/                           # 📚 Centralized Documentation Hub
+│   ├── architecture/               # System design, marketplace & UI/UX specs
+│   ├── database-and-backend/       # Migrations, seeding & admin bootstrapping
+│   ├── deployment/                 # VPS runbooks, readiness audits & prod configs
+│   ├── planning/                   # Phase progress (frontend-separation, phase-1, marketplace)
+│   ├── upgrade/                    # Upgrade roadmap & auth security design
+│   ├── STYLE_GUIDE.md              # Documentation authoring standards & templates
+│   └── README.md                   # Documentation table of contents
+│
+├── backend/                        # ⚡ FastAPI REST Backend Engine
 │   ├── app/
 │   │   ├── api/                    # APIRouters (auth, products, orders, etc.)
 │   │   ├── core/                   # Security, JWT, config & dependencies
@@ -255,36 +295,36 @@ e-commerce/
 │   ├── Dockerfile
 │   └── requirements.txt
 │
-├── web-app/                        # Next.js 16 Admin Dashboard
-│   ├── src/
-│   │   ├── app/                    # Next.js App Router pages
-│   │   │   ├── (admin)/admin/      # Admin dashboard pages (orders, inventory, etc.)
-│   │   │   └── (auth)/             # Login and registration pages
-│   │   ├── components/             # Reusable UI & Layout components
-│   │   └── lib/                    # API client, auth utilities, types
-│   ├── Dockerfile
+├── storefront/                     # 🛍️ Modern Next.js 16 Customer Storefront
+│   ├── src/app/                    # Next.js App Router (shop, cart, checkout)
+│   ├── src/components/             # Modern UI design system & layout components
 │   └── package.json
 │
-├── mobile-app/                     # Flutter Mobile Application
+├── management/                     # 📊 Next.js 16 Admin & Seller Portal
+│   ├── src/app/                    # Admin dashboard, seller center & POS
+│   ├── src/components/             # Management components & data tables
+│   └── package.json
+│
+├── mobile-app/                     # 📱 Flutter Mobile Application
 │   ├── lib/
 │   │   ├── core/                   # Theme, constants, network & utilities
-│   │   ├── features/               # Feature-first modules
-│   │   │   ├── auth/               # Login, Register, Splash
-│   │   │   ├── home/               # Home screen, banners, feeds
-│   │   │   ├── product/            # Details, search, category filter
-│   │   │   ├── cart/               # Cart, checkout & order summary
-│   │   │   ├── orders/             # Order history & status tracking
-│   │   │   ├── profile/            # User settings & profile
-│   │   │   └── notifications/      # Real-time notification feed
+│   │   ├── features/               # Feature-first modules (auth, home, product, cart)
 │   │   └── main.dart               # App entrypoint
 │   ├── test/                       # Unit & Widget tests
 │   └── pubspec.yaml
 │
+├── deploy/                         # 🚀 Production deployment configs & scripts
+│   ├── production/                 # Docker Compose prod configuration
+│   └── scripts/                    # Backup, restore & migration automation
+│
+├── web-app/                        # 🏛️ Monolithic web app (legacy reference)
 ├── pgadmin/                        # pgAdmin auto-server provisioning
 │   └── servers.json
-├── docker-compose.yml              # Complete multi-service docker orchestration
+├── docker-compose.yml              # Multi-service development docker orchestration
 ├── run.sh                          # One-click startup script
-└── README.md                       # Project documentation
+├── PROJECT_CONTEXT.md              # Verified ground-truth audit & architecture guide
+├── AGENTS.md                       # AI agent instructions & codebase conventions
+└── README.md                       # Project documentation entry point
 ```
 
 ---
