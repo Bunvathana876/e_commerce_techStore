@@ -1,0 +1,174 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'promo_banner.dart';
+
+// Data model for an individual promotional banner slide.
+class PromoItem {
+  final String? title;
+  final String titlePrefix;
+  final String highlightText;
+  final String titleSuffix;
+  final String subtitle;
+  final String couponCode;
+  final String buttonText;
+  final String? imageUrl;
+  final String? assetPath;
+  final VoidCallback? onTap;
+  final Color accentColor;
+  final String? tag;
+  final IconData? tagIcon;
+  final String? badgeText;
+
+  const PromoItem({
+    this.title,
+    this.titlePrefix = '',
+    this.highlightText = '',
+    this.titleSuffix = '',
+    this.subtitle = '',
+    this.couponCode = '',
+    this.buttonText = 'Explore',
+    this.imageUrl,
+    this.assetPath,
+    this.onTap,
+    this.accentColor = const Color(0xFF059669),
+    this.tag,
+    this.tagIcon,
+    this.badgeText,
+  });
+}
+
+// Auto-scrolling carousel that cycles through promotional banner items.
+class PromoBannerCarousel extends StatefulWidget {
+  final List<PromoItem> items;
+  final Duration autoScrollDuration;
+  final double height;
+
+  const PromoBannerCarousel({
+    super.key,
+    required this.items,
+    this.autoScrollDuration = const Duration(seconds: 4),
+    this.height = 185.0,
+  });
+
+  @override
+  State<PromoBannerCarousel> createState() => _PromoBannerCarouselState();
+}
+
+class _PromoBannerCarouselState extends State<PromoBannerCarousel> {
+  late final PageController _pageController;
+  Timer? _autoScrollTimer;
+  int _currentPage = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController(initialPage: 0);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _startAutoScrollTimer();
+  }
+
+  @override
+  void didUpdateWidget(covariant PromoBannerCarousel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.autoScrollDuration != widget.autoScrollDuration ||
+        oldWidget.items.length != widget.items.length) {
+      _startAutoScrollTimer();
+    }
+  }
+
+  // Start periodic auto-scroll timer
+  void _startAutoScrollTimer() {
+    _autoScrollTimer?.cancel();
+
+    // Respect user's accessibility reduced-motion preference
+    if (mounted && (MediaQuery.maybeOf(context)?.disableAnimations ?? false)) {
+      return;
+    }
+
+    // No need to auto-scroll if there's only 1 item or list is empty
+    if (widget.items.length <= 1) return;
+
+    _autoScrollTimer = Timer.periodic(widget.autoScrollDuration, (timer) {
+      if (!mounted || !_pageController.hasClients) return;
+
+      final nextPage = (_currentPage + 1) % widget.items.length;
+      _pageController.animateToPage(
+        nextPage,
+        duration: const Duration(milliseconds: 650),
+        curve: Curves.easeInOutCubic,
+      );
+    });
+  }
+
+  // Handle page switch (swipe or timer)
+  void _onPageChanged(int index) {
+    setState(() {
+      _currentPage = index;
+    });
+    // Reset countdown so the user has full duration to read the swiped page
+    _startAutoScrollTimer();
+  }
+
+  @override
+  void dispose() {
+    _autoScrollTimer?.cancel();
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.items.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return SizedBox(
+      height: widget.height,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: (notification) {
+          if (notification is ScrollStartNotification) {
+            // Pause timer while user is actively touching or dragging
+            _autoScrollTimer?.cancel();
+          } else if (notification is ScrollEndNotification) {
+            // Restart timer once user interaction finishes
+            _startAutoScrollTimer();
+          }
+          return false;
+        },
+        child: PageView.builder(
+          controller: _pageController,
+          physics: const BouncingScrollPhysics(),
+          itemCount: widget.items.length,
+          onPageChanged: _onPageChanged,
+          itemBuilder: (context, index) {
+            final item = widget.items[index];
+
+            return PromoBanner(
+              title: item.title,
+              titlePrefix: item.titlePrefix,
+              highlightText: item.highlightText,
+              titleSuffix: item.titleSuffix,
+              subtitle: item.subtitle,
+              couponCode: item.couponCode,
+              buttonText: item.buttonText,
+              imageUrl: item.imageUrl,
+              assetPath: item.assetPath,
+              onTap: item.onTap,
+              accentColor: item.accentColor,
+              activeDotIndex: _currentPage,
+              totalDots: widget.items.length,
+              tag: item.tag,
+              tagIcon: item.tagIcon,
+              badgeText: item.badgeText,
+              height: widget.height,
+            );
+          },
+        ),
+      ),
+    );
+  }
+}

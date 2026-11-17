@@ -1,0 +1,82 @@
+from datetime import datetime
+from decimal import Decimal
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class OrderUserSummary(BaseModel):
+    id: int
+    name: str
+    email: str
+    phone: str | None = None
+    avatar: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OrderItemResponse(BaseModel):
+    id: int
+    order_id: int
+    product_id: int | None = None
+    product_name: str
+    price: Decimal
+    quantity: int
+    subtotal: Decimal
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OrderItemCreate(BaseModel):
+    product_id: int = Field(gt=0, description="Product ID")
+    quantity: int = Field(gt=0, description="Item quantity (positive integer)")
+
+
+class OrderCreateRequest(BaseModel):
+    shipping_address: str | None = Field(default=None, description="Full delivery address text")
+    shipping_address_id: int | None = Field(default=None, description="Optional Address ID")
+    payment_method: str = Field(default="Cash on Delivery", max_length=50)
+    phone: str | None = None
+    full_name: str | None = None
+    coupon_code: str | None = Field(default=None, description="Optional promo/coupon code")
+    items: list[OrderItemCreate] | None = Field(
+        default=None,
+        description="Optional explicit order items for atomic checkout. If omitted, uses server cart.",
+    )
+    idempotency_key: str | None = Field(
+        default=None,
+        max_length=255,
+        description="Optional client-generated idempotency key to prevent duplicate orders from retries.",
+    )
+
+
+class OrderResponse(BaseModel):
+    id: int
+    user_id: int
+    user: OrderUserSummary | None = None
+    status: str
+    subtotal: Decimal
+    discount_amount: Decimal = Decimal("0.00")
+    coupon_code: str | None = None
+    shipping_fee: Decimal
+    total: Decimal
+    payment_method: str
+    payment_status: str
+    shipping_address: str
+    created_at: datetime
+    updated_at: datetime
+    items: list[OrderItemResponse] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class OrderStatusUpdateRequest(BaseModel):
+    status: str | None = None
+    payment_status: str | None = None
+    reason: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Audit reason or receipt reference for manual cash settlement or refund.",
+    )
+
+
+
