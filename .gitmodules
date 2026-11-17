@@ -1,0 +1,15 @@
+[submodule "backend"]
+	path = backend
+	url = https://github.com/Bunvathana876/e_commerce_backend.git
+[submodule "storefront"]
+	path = storefront
+	url = https://github.com/Bunvathana876/e_commerce_storefront.git
+[submodule "management"]
+	path = management
+	url = https://github.com/Bunvathana876/e_commerce_mangement.git
+[submodule "mobile-app"]
+	path = mobile-app
+	url = https://github.com/Bunvathana876/e_commerce_mobile_app_flutter.git
+[submodule "web-app"]
+	path = web-app
+	url = https://github.com/Bunvathana876/web-app-e-commerce.git
