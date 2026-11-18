@@ -1,59 +1,118 @@
+# ==============================================================================
+# Root .gitignore — Blue Panda E-Commerce Monorepo
+# ==============================================================================
+
 # Environment files (NEVER commit private secrets or credentials)
 .env
 .env.*
+.env*.local
 !.env.example
+*.env
 
-# Python
+# Secret keys, credentials & certificates (NEVER commit private keys)
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+*.keystore
+*.jks
+key.properties
+*.credentials
+credentials.json
+client_secret*.json
+**/google-services.json
+**/GoogleService-Info.plist
+
+# Operating System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Editor & IDE artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# Python & Backend
 __pycache__/
 *.py[cod]
 *$py.class
+*.so
+.Python
 .venv/
 venv/
+env/
+ENV/
 .pytest_cache/
-
-# OS and Editor artifacts
-.DS_Store
-Thumbs.db
-.vscode/
-.idea/
-
-# Uploads
-uploads/
-backend/uploads/
-
-# Backups & Analysis Caches
-backups/
-graphify-out/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+*.sqlite
+*.sqlite3
+*.db
 
 # JavaScript / TypeScript / Node
 node_modules/
 .next/
 out/
+dist/
 .vercel/
+*.tsbuildinfo
+next-env.d.ts
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-*.tsbuildinfo
 
-# Flutter / Dart
+# Flutter / Dart / Mobile
 .dart_tool/
+.flutter-plugins
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
 build/
 coverage/
+**/local.properties
+**/android/.gradle/
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+**/ios/Pods/
+**/ios/.symlinks/
 **/ios/Flutter/.last_build_id
-**/macos/Flutter/ephemeral/
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
 **/ios/Flutter/ephemeral/
-android/app/debug
-android/app/profile
-android/app/release
-
-# Mobile Signing & Certificates (NEVER commit private keys/certs)
-*.pem
-*.keystore
-*.jks
-key.properties
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/macos/Flutter/GeneratedPluginRegistrant.*
+**/macos/Flutter/ephemeral/
+**/linux/flutter/ephemeral/
+**/windows/flutter/ephemeral/
 app.*.symbols
 app.*.map.json
+
+# Uploads, local media & storage
+uploads/
+backend/uploads/
+
+# Backups & local analysis
+backups/
+graphify-out/
+
+# Docker Compose local overrides
+docker-compose.override.yml
+compose.override.yaml
