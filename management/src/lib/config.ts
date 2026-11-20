@@ -1,14 +1,14 @@
 export const API_BASE_URL = (
   process.env.NEXT_PUBLIC_API_URL ||
   (process.env.NODE_ENV === "production"
-    ? "https://blue-panda-api-demo.onrender.com/api"
+    ? "https://e-commerce-techstore-bhu7.onrender.com/api"
     : "http://localhost:8000/api")
 ).replace(/\/+$/, "");
 
 export const STOREFRONT_URL = (
   process.env.NEXT_PUBLIC_STOREFRONT_URL ||
   (process.env.NODE_ENV === "production"
-    ? "https://blue-panda-storefront-iota.vercel.app"
+    ? "https://blue-panda-techstore.vercel.app"
     : "http://localhost:3000")
 ).replace(/\/+$/, "");
 

@@ -4,8 +4,8 @@ const isVercel = process.env.VERCEL === "1";
 const isStrictProduction = process.env.STRICT_PRODUCTION_URLS === "true";
 
 // Defaults for production deployments when not explicitly overridden
-const DEFAULT_PROD_API_URL = "https://blue-panda-api-demo.onrender.com/api";
-const DEFAULT_PROD_MANAGEMENT_URL = "https://blue-panda-management.vercel.app";
+const DEFAULT_PROD_API_URL = "https://e-commerce-techstore-bhu7.onrender.com/api";
+const DEFAULT_PROD_MANAGEMENT_URL = "https://blue-panda-techstore-admin.vercel.app";
 
 if (isVercel || isStrictProduction) {
   const currentApi = process.env.NEXT_PUBLIC_API_URL;
@@ -62,7 +62,10 @@ const apiRemotePattern = getApiRemotePattern();
 const nextConfig: NextConfig = {
   output: "standalone",
   turbopack: {},
+  compress: true,
+  poweredByHeader: false,
   images: {
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       {
         protocol: "http",
@@ -93,6 +96,13 @@ const nextConfig: NextConfig = {
       },
       ...(apiRemotePattern ? [apiRemotePattern] : []),
     ],
+  },
+  experimental: {
+    optimizePackageImports: ["lucide-react"],
+    staleTimes: {
+      dynamic: 30,
+      static: 180,
+    },
   },
   async headers() {
     return [
