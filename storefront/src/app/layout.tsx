@@ -19,7 +19,7 @@ const bricolageGrotesque = Bricolage_Grotesque({
   variable: "--font-heading",
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://blue-panda-storefront-iota.vercel.app";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://blue-panda-techstore.vercel.app";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

@@ -27,7 +27,15 @@ fi
 
 # Build and start services in background
 echo -e "\n${YELLOW}[1/3] Building and starting Docker containers...${NC}"
-docker compose up --build -d
+COMPOSE_ARGS=()
+for arg in "$@"; do
+    if [ "$arg" = "--container-db" ]; then
+        COMPOSE_ARGS+=("--profile" "container-db")
+    else
+        COMPOSE_ARGS+=("$arg")
+    fi
+done
+docker compose "${COMPOSE_ARGS[@]}" up --build -d
 
 echo -e "\n${YELLOW}[2/3] Waiting for services to become healthy...${NC}"
 
@@ -46,7 +54,7 @@ if [ $COUNT -eq $MAX_RETRIES ]; then
     echo -e "${RED}Warning: Backend is taking longer than expected to start.${NC}"
     echo "Check logs with: docker compose logs -f"
 else
-    echo -e "${GREEN}✓ All services (PostgreSQL, pgAdmin 4, Backend, Web App) are running and healthy!${NC}"
+    echo -e "${GREEN}✓ All services (Backend, Customer Storefront, Management Portal, pgAdmin 4) are running and healthy!${NC}"
 fi
 
 echo -e "\n${BLUE}======================================================${NC}"

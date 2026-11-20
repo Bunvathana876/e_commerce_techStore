@@ -9,6 +9,7 @@ import argparse
 import getpass
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 import warnings
@@ -21,7 +22,7 @@ from sqlalchemy.pool import NullPool
 import httpx
 
 
-API = "https://blue-panda-api-demo.onrender.com/api"
+API = os.getenv("API_URL", "https://e-commerce-techstore-bhu7.onrender.com/api")
 APPROVAL = "AUTHORIZE FIRST ADMIN"
 EXPECTED_COLUMNS = {
     "id", "name", "email", "password_hash", "phone", "avatar", "role",

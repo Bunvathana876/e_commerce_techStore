@@ -6,7 +6,7 @@ export async function generateStorefrontSitemap(deps?: {
 }): Promise<MetadataRoute.Sitemap> {
   const siteUrl =
     process.env.NEXT_PUBLIC_SITE_URL ||
-    "https://blue-panda-storefront-iota.vercel.app";
+    "https://blue-panda-techstore.vercel.app";
   const now = new Date();
 
   const staticRoutes: MetadataRoute.Sitemap = [

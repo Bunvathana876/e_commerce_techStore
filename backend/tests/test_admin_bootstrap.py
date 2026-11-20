@@ -174,7 +174,7 @@ def test_verifies_deployed_login_and_me_without_printing_secrets(monkeypatch, ca
     def handle(request):
         seen.append(request.url.path)
         assert request.url.scheme == "https"
-        assert request.url.host == "blue-panda-api-demo.onrender.com"
+        assert request.url.host == "e-commerce-techstore-bhu7.onrender.com"
         if request.url.path.endswith("/login"):
             assert json.loads(request.content) == {"email": expected["email"], "password": password}
             if failure == "redirect":

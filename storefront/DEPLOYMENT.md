@@ -19,8 +19,9 @@ Set these public configuration variables for Production and Preview **before
 building**:
 
 ```dotenv
-NEXT_PUBLIC_API_URL=https://blue-panda-api-demo.onrender.com/api
+NEXT_PUBLIC_API_URL=https://e-commerce-techstore-bhu7.onrender.com/api
 NEXT_PUBLIC_ENABLE_DEMO_COUPONS=false
+NEXT_PUBLIC_MANAGEMENT_URL=https://blue-panda-techstore-admin.vercel.app
 ```
 
 `NEXT_PUBLIC_MANAGEMENT_URL` is pending until the Management Dashboard is

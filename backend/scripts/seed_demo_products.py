@@ -8,6 +8,7 @@ import argparse
 from decimal import Decimal
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 from urllib.parse import quote
@@ -22,7 +23,7 @@ from app.schemas.category import CategoryCreate
 from app.schemas.product import ProductCreate
 
 
-API = "https://blue-panda-api-demo.onrender.com/api"
+API = os.getenv("API_URL", "https://e-commerce-techstore-bhu7.onrender.com/api")
 MARKER = "[Blue Panda demonstration content v1]"
 DEMO = (
     ("MacBook Air M3", "999.00", "Laptops", 12,
