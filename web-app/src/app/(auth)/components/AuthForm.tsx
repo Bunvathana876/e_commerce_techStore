@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState, useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { IoPersonSharp } from "react-icons/io5";
@@ -122,11 +123,12 @@ function AuthFormInner({ mode }: AuthFormProps) {
             isLogin ? "hidden md:flex" : "flex"
           }`}
         >
-          <img
+          <Image
             src="/images/logo_panda_blue.png"
             alt="Blue Panda"
             width={48}
             height={48}
+            priority
             className="w-12 h-12 rounded-2xl mb-3 shadow-md"
           />
           <h2 className="text-2xl font-extrabold mb-1 text-slate-900">
@@ -234,11 +236,12 @@ function AuthFormInner({ mode }: AuthFormProps) {
             isLogin ? "flex" : "hidden md:flex"
           }`}
         >
-          <img
+          <Image
             src="/images/logo_panda_blue.png"
             alt="Blue Panda"
             width={48}
             height={48}
+            priority
             className="w-12 h-12 rounded-2xl mb-3 shadow-md"
           />
           <h2 className="text-2xl font-extrabold mb-1 text-slate-900">

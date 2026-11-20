@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   Eye,
@@ -45,14 +46,14 @@ export default function ProductCard({
     return (
       <article className="group bg-white rounded-3xl border border-slate-200/80 hover:border-blue-300 shadow-xs hover:shadow-xl hover:shadow-blue-950/5 transition-all duration-300 p-4 sm:p-5 flex flex-col sm:flex-row gap-5">
         <div className="relative w-full sm:w-52 h-52 rounded-2xl overflow-hidden bg-slate-100 shrink-0">
-          <Link href={`/product/${product.id}`} className="block w-full h-full">
-            <img
+          <Link href={`/product/${product.id}`} className="block w-full h-full relative">
+            <Image
               src={resolveProductImage(product)}
               alt={product.name}
+              fill
               loading="lazy"
-              width={400}
-              height={400}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              sizes="(max-width: 640px) 100vw, 208px"
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
             />
           </Link>
           {discountPercent > 0 && (
@@ -152,14 +153,14 @@ export default function ProductCard({
     <article className="group relative bg-white rounded-3xl border border-slate-200/80 hover:border-blue-300/90 shadow-[0_8px_30px_rgba(15,23,42,0.04)] hover:shadow-[0_18px_45px_rgba(37,99,235,0.10)] transition-all duration-300 flex flex-col overflow-hidden">
       {/* Image Container */}
       <div className="relative aspect-square overflow-hidden bg-slate-100">
-        <Link href={`/product/${product.id}`} className="block w-full h-full">
-          <img
+        <Link href={`/product/${product.id}`} className="block w-full h-full relative">
+          <Image
             src={resolveProductImage(product)}
             alt={product.name}
+            fill
             loading="lazy"
-            width={500}
-            height={500}
-            className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500 ease-out"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, (max-width: 1280px) 33vw, 25vw"
+            className="object-cover group-hover:scale-108 transition-transform duration-500 ease-out"
           />
         </Link>
 

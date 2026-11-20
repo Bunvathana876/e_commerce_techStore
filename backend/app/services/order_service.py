@@ -401,17 +401,18 @@ class OrderService:
         return OrderResponse.model_validate(order)
 
     @staticmethod
-    def get_all_orders(db: Session) -> list[OrderResponse]:
-        orders = list(
-            db.scalars(
-                select(Order)
-                .options(
-                    selectinload(Order.items),
-                    selectinload(Order.user),
-                )
-                .order_by(Order.created_at.desc())
-            ).all()
+    def get_all_orders(db: Session, limit: int | None = None) -> list[OrderResponse]:
+        query = (
+            select(Order)
+            .options(
+                selectinload(Order.items),
+                selectinload(Order.user),
+            )
+            .order_by(Order.created_at.desc())
         )
+        if limit is not None and limit > 0:
+            query = query.limit(limit)
+        orders = list(db.scalars(query).all())
         return [OrderResponse.model_validate(o) for o in orders]
 
     @staticmethod

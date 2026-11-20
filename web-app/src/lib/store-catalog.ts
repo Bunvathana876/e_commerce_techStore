@@ -593,79 +593,164 @@ export const SHOWCASE_REVIEWS: ApiReview[] = [
 ];
 
 // ==========================================
-// Resilient Dual-Mode Fetchers (Live API + Showcase Fallback)
+// Resilient Dual-Mode Fetchers (Live API + Showcase Fallback) with Memory Cache
 // ==========================================
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+}
+
+const CATALOG_CACHE_TTL_MS = 60 * 1000; // 60s in-memory cache to prevent redundant roundtrips
+
+let cachedProducts: CacheEntry<{
+  products: ApiProduct[];
+  isLiveBackend: boolean;
+}> | null = null;
+let cachedCategories: CacheEntry<ApiCategory[]> | null = null;
+let cachedSellers: CacheEntry<ApiSeller[]> | null = null;
+let cachedCoupons: CacheEntry<ApiCoupon[]> | null = null;
+const cachedProductById = new Map<
+  number,
+  CacheEntry<{ product: ApiProduct | null; isLiveBackend: boolean }>
+>();
+const cachedReviews = new Map<number, CacheEntry<ApiReview[]>>();
+
 export async function fetchStoreProducts(): Promise<{
   products: ApiProduct[];
   isLiveBackend: boolean;
 }> {
+  if (
+    cachedProducts &&
+    Date.now() - cachedProducts.timestamp < CATALOG_CACHE_TTL_MS
+  ) {
+    return cachedProducts.data;
+  }
+
   try {
     const res = await productsApi.list({ limit: 100 });
     const items = (res.data?.items || []).filter((p) => p.is_active !== false);
     if (items.length > 0) {
-      return { products: items, isLiveBackend: true };
+      const result = { products: items, isLiveBackend: true };
+      cachedProducts = { data: result, timestamp: Date.now() };
+      return result;
     }
   } catch {
     // Graceful fallback when backend is offline
   }
-  return { products: SHOWCASE_PRODUCTS, isLiveBackend: false };
+  const fallback = { products: SHOWCASE_PRODUCTS, isLiveBackend: false };
+  cachedProducts = { data: fallback, timestamp: Date.now() };
+  return fallback;
 }
 
 export async function fetchStoreProductById(id: number): Promise<{
   product: ApiProduct | null;
   isLiveBackend: boolean;
 }> {
+  const existing = cachedProductById.get(id);
+  if (existing && Date.now() - existing.timestamp < CATALOG_CACHE_TTL_MS) {
+    return existing.data;
+  }
+
   try {
     const res = await productsApi.get(id);
     if (res.data) {
-      return { product: res.data, isLiveBackend: true };
+      const result = { product: res.data, isLiveBackend: true };
+      cachedProductById.set(id, { data: result, timestamp: Date.now() });
+      return result;
     }
   } catch {
     // Graceful fallback to showcase catalog
   }
-  const fallback = SHOWCASE_PRODUCTS.find((p) => p.id === id) || null;
-  return { product: fallback, isLiveBackend: false };
+  const fallback = {
+    product: SHOWCASE_PRODUCTS.find((p) => p.id === id) || null,
+    isLiveBackend: false,
+  };
+  cachedProductById.set(id, { data: fallback, timestamp: Date.now() });
+  return fallback;
 }
 
 export async function fetchStoreCategories(): Promise<ApiCategory[]> {
+  if (
+    cachedCategories &&
+    Date.now() - cachedCategories.timestamp < CATALOG_CACHE_TTL_MS
+  ) {
+    return cachedCategories.data;
+  }
+
   try {
     const res = await categoriesApi.list(true);
-    if (res.data && res.data.length > 0) return res.data;
+    if (res.data && res.data.length > 0) {
+      cachedCategories = { data: res.data, timestamp: Date.now() };
+      return res.data;
+    }
   } catch {
     // Fallback
   }
+  cachedCategories = { data: SHOWCASE_CATEGORIES, timestamp: Date.now() };
   return SHOWCASE_CATEGORIES;
 }
 
 export async function fetchStoreSellers(): Promise<ApiSeller[]> {
+  if (
+    cachedSellers &&
+    Date.now() - cachedSellers.timestamp < CATALOG_CACHE_TTL_MS
+  ) {
+    return cachedSellers.data;
+  }
+
   try {
     const res = await sellersApi.list({ status: "Active" });
-    if (res.data && res.data.length > 0) return res.data;
+    if (res.data && res.data.length > 0) {
+      cachedSellers = { data: res.data, timestamp: Date.now() };
+      return res.data;
+    }
   } catch {
     // Fallback
   }
+  cachedSellers = { data: SHOWCASE_SELLERS, timestamp: Date.now() };
   return SHOWCASE_SELLERS;
 }
 
 export async function fetchStoreCoupons(): Promise<ApiCoupon[]> {
+  if (
+    cachedCoupons &&
+    Date.now() - cachedCoupons.timestamp < CATALOG_CACHE_TTL_MS
+  ) {
+    return cachedCoupons.data;
+  }
+
   try {
     const res = await couponsApi.available();
-    if (res.data && res.data.length > 0) return res.data;
+    if (res.data && res.data.length > 0) {
+      cachedCoupons = { data: res.data, timestamp: Date.now() };
+      return res.data;
+    }
   } catch {
     // Fallback
   }
+  cachedCoupons = { data: SHOWCASE_COUPONS, timestamp: Date.now() };
   return SHOWCASE_COUPONS;
 }
 
 export async function fetchStoreReviews(productId: number): Promise<ApiReview[]> {
+  const existing = cachedReviews.get(productId);
+  if (existing && Date.now() - existing.timestamp < CATALOG_CACHE_TTL_MS) {
+    return existing.data;
+  }
+
   try {
     const res = await reviewsApi.list({ product_id: productId });
-    if (res.data && res.data.length > 0) return res.data;
+    if (res.data && res.data.length > 0) {
+      cachedReviews.set(productId, { data: res.data, timestamp: Date.now() });
+      return res.data;
+    }
   } catch {
     // Fallback
   }
   const matching = SHOWCASE_REVIEWS.filter((r) => r.product_id === productId);
-  return matching.length > 0 ? matching : SHOWCASE_REVIEWS.slice(0, 2);
+  const result = matching.length > 0 ? matching : SHOWCASE_REVIEWS.slice(0, 2);
+  cachedReviews.set(productId, { data: result, timestamp: Date.now() });
+  return result;
 }
 
 /**

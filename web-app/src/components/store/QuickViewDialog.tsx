@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -107,13 +108,13 @@ export default function QuickViewDialog() {
         <div className="grid grid-cols-1 md:grid-cols-2">
           {/* Left: Product Visual */}
           <div className="relative bg-slate-100 aspect-square md:aspect-auto md:min-h-105">
-            <img
+            <Image
               src={resolveProductImage(product)}
               alt={product.name}
-              fetchPriority="low"
-              width={600}
-              height={600}
-              className="w-full h-full object-cover"
+              fill
+              loading="lazy"
+              sizes="(max-width: 768px) 100vw, 500px"
+              className="object-cover"
             />
             {getDiscountPercent(product) > 0 && (
               <span className="absolute top-4 left-4 px-3 py-1 rounded-full bg-rose-500 text-white text-xs font-extrabold shadow-sm">

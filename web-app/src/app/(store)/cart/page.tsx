@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -150,7 +151,7 @@ export default function CartPage() {
                   href={`/product/${item.product.id}`}
                   className="w-24 h-24 rounded-2xl overflow-hidden bg-slate-100 shrink-0"
                 >
-                  <img
+                  <Image
                     src={resolveProductImage(item.product)}
                     alt={item.product.name}
                     loading="lazy"

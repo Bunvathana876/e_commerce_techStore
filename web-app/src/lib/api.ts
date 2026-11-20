@@ -164,6 +164,19 @@ export interface ApiSeller {
 
 
 
+const DEFAULT_TIMEOUT_MS = 3500;
+
+function isUnreachableHost(url: string): boolean {
+  if (typeof window === "undefined") return false;
+  const isHttps = window.location.protocol === "https:";
+  const isLocalApi =
+    url.startsWith("http://localhost") || url.startsWith("http://127.0.0.1");
+  const isLocalBrowser =
+    window.location.hostname === "localhost" ||
+    window.location.hostname === "127.0.0.1";
+  return isHttps && isLocalApi && !isLocalBrowser;
+}
+
 /**
  * Generic HTTP client with JWT token attachment and error extraction
  */
@@ -172,6 +185,12 @@ async function request<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
+
+  if (isUnreachableHost(url)) {
+    throw new Error(
+      "Backend API host is unreachable from this environment. Using showcase fallback data."
+    );
+  }
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -185,10 +204,24 @@ async function request<T>(
     }
   }
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS);
+  if (options.signal) {
+    options.signal.addEventListener("abort", () => controller.abort(), {
+      once: true,
+    });
+  }
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const json = await response.json().catch(() => ({}));
 
@@ -403,8 +436,9 @@ export const ordersApi = {
     return request<ApiResponse<ApiOrder[]>>("/orders");
   },
 
-  listAll: async (): Promise<ApiResponse<ApiOrder[]>> => {
-    return request<ApiResponse<ApiOrder[]>>("/orders/all");
+  listAll: async (params?: { limit?: number }): Promise<ApiResponse<ApiOrder[]>> => {
+    const query = params?.limit ? `?limit=${params.limit}` : "";
+    return request<ApiResponse<ApiOrder[]>>(`/orders/all${query}`);
   },
 
   get: async (id: number): Promise<ApiResponse<ApiOrder>> => {

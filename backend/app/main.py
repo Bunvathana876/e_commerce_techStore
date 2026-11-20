@@ -5,6 +5,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from starlette.middleware.gzip import GZipMiddleware
 
 from app.api.v1 import api_router, api_v1_router
 from app.core.config import Settings, settings
@@ -299,6 +300,9 @@ def create_app(custom_settings: Settings | None = None) -> CORSMiddleware:
             },
             headers=headers,
         )
+
+    # Wrap in GZipMiddleware to compress large JSON responses (>= 1KB)
+    app_instance.add_middleware(GZipMiddleware, minimum_size=1000)
 
     # Standard security headers middleware
     @app_instance.middleware("http")

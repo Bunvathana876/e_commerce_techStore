@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -198,11 +199,12 @@ export default function StoreNavbar() {
             </button>
 
             <Link href="/" className="flex items-center gap-2.5 group">
-              <img
+              <Image
                 src="/images/logo_panda_blue.png"
                 alt="Blue Panda Logo"
                 width={42}
                 height={42}
+                priority
                 className="w-10.5 h-10.5 rounded-2xl object-cover shadow-md shadow-blue-600/20 group-hover:scale-105 transition-transform"
               />
               <div className="hidden sm:block">

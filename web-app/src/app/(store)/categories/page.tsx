@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Layers } from "lucide-react";
 import type { ApiCategory, ApiProduct } from "@/lib/api";
@@ -52,13 +53,13 @@ export default function CategoriesPage() {
               href={`/shop?category=${encodeURIComponent(cat.name)}`}
               className="group relative h-80 rounded-[2rem] overflow-hidden bg-slate-950 shadow-md hover:shadow-2xl transition-all"
             >
-              <img
+              <Image
                 src={meta.coverImage}
                 alt={cat.name}
+                fill
                 loading="lazy"
-                width={600}
-                height={500}
-                className="w-full h-full object-cover opacity-80 group-hover:scale-108 transition-transform duration-500"
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                className="object-cover opacity-80 group-hover:scale-108 transition-transform duration-500"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/45 to-transparent" />
               <div className="absolute inset-x-6 bottom-6 text-white space-y-2">

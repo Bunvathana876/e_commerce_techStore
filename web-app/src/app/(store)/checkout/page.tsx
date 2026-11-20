@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   AlertCircle,
@@ -640,7 +641,7 @@ export default function CheckoutPage() {
               const unit = getEffectivePrice(item.product);
               return (
                 <div key={item.key} className="flex items-center gap-3">
-                  <img
+                  <Image
                     src={resolveProductImage(item.product)}
                     alt={item.product.name}
                     loading="lazy"

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
@@ -28,6 +29,7 @@ import {
   ApiOrder,
 } from "@/lib/api";
 import { getCurrentUser } from "@/lib/auth";
+import { resolveProductImage } from "@/lib/store-catalog";
 
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -82,7 +84,7 @@ export default function AdminDashboardPage() {
       const [statsRes, prodRes, ordersRes] = await Promise.all([
         statsApi.getOverview(),
         productsApi.list({ limit: 6, sort: "popular" }),
-        ordersApi.listAll(),
+        ordersApi.listAll({ limit: 5 }),
       ]);
       setStats(statsRes.data);
       setTopProducts(prodRes.data?.items || []);
@@ -495,9 +497,12 @@ export default function AdminDashboardPage() {
                             <div className="flex items-center gap-3">
                               <div className="w-9 h-9 rounded-lg bg-slate-100 overflow-hidden shrink-0 flex items-center justify-center border border-slate-100">
                                 {p.image_url ? (
-                                  <img
-                                    src={p.image_url}
+                                  <Image
+                                    src={resolveProductImage(p)}
                                     alt={p.name}
+                                    width={36}
+                                    height={36}
+                                    loading="lazy"
                                     className="w-full h-full object-cover"
                                   />
                                 ) : (

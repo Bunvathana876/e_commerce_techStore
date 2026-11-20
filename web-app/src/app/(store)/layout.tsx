@@ -1,9 +1,6 @@
 import StoreNavbar from "@/components/store/StoreNavbar";
 import StoreFooter from "@/components/store/StoreFooter";
-import CartDrawer from "@/components/store/CartDrawer";
-import QuickViewDialog from "@/components/store/QuickViewDialog";
-import SearchCommandDialog from "@/components/store/SearchCommandDialog";
-import ToastViewport from "@/components/store/ToastViewport";
+import StoreOverlays from "@/components/store/StoreOverlays";
 
 export default function StoreLayout({
   children,
@@ -15,10 +12,7 @@ export default function StoreLayout({
       <StoreNavbar />
       <main className="flex-1">{children}</main>
       <StoreFooter />
-      <CartDrawer />
-      <QuickViewDialog />
-      <SearchCommandDialog />
-      <ToastViewport />
+      <StoreOverlays />
     </div>
   );
 }

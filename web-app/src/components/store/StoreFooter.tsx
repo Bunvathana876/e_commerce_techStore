@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   CheckCircle2,
@@ -92,7 +93,7 @@ export default function StoreFooter() {
         {/* Brand Column */}
         <div className="lg:col-span-2 space-y-4">
           <Link href="/" className="inline-flex items-center gap-3">
-            <img
+            <Image
               src="/images/logo_panda_blue.png"
               alt="Blue Panda Logo"
               loading="lazy"

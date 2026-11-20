@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.dependencies import get_current_user, require_roles
@@ -12,10 +12,11 @@ router = APIRouter(prefix="/orders", tags=["Orders"])
 
 @router.get("/all", status_code=status.HTTP_200_OK)
 def get_all_orders(
+    limit: int | None = Query(None, ge=1, le=500, description="Optional limit of orders to return"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles("admin")),
 ):
-    orders = OrderService.get_all_orders(db)
+    orders = OrderService.get_all_orders(db, limit=limit)
     return {
         "success": True,
         "message": "All orders retrieved successfully.",

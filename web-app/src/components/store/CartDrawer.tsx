@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -168,7 +169,7 @@ export default function CartDrawer() {
                     onClick={closeCart}
                     className="w-20 h-20 rounded-xl overflow-hidden bg-slate-100 shrink-0"
                   >
-                    <img
+                    <Image
                       src={resolveProductImage(item.product)}
                       alt={item.product.name}
                       fetchPriority="low"

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Flame, Search, Sparkles, X } from "lucide-react";
@@ -220,7 +221,7 @@ export default function SearchCommandDialog() {
                 onClick={() => dialogRef.current?.close()}
                 className="flex items-center gap-3 p-2.5 rounded-2xl hover:bg-slate-50 border border-transparent hover:border-slate-200/80 transition group"
               >
-                <img
+                <Image
                   src={resolveProductImage(item)}
                   alt={item.name}
                   fetchPriority="low"

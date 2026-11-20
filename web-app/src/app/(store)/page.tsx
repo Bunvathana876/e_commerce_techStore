@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -247,19 +248,16 @@ export default function StoreHomePage() {
                 {HERO_SLIDES.map((slide, idx) => {
                   const isCurrent = idx === heroIndex;
                   return (
-                    <img
+                    <Image
                       key={slide.title}
                       src={slide.image}
                       alt={slide.spotName}
-                      {...(idx === 0
-                        ? { fetchPriority: "high" as const }
-                        : {
-                            fetchPriority: "low" as const,
-                            loading: "lazy" as const,
-                          })}
-                      width={700}
-                      height={700}
-                      className={`absolute inset-0 w-full h-full object-cover transition-all duration-700 ${
+                      fill
+                      priority={idx === 0}
+                      loading={idx === 0 ? "eager" : "lazy"}
+                      fetchPriority={idx === 0 ? "high" : "low"}
+                      sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 448px"
+                      className={`object-cover transition-all duration-700 ${
                         isCurrent
                           ? "opacity-100 scale-100"
                           : "opacity-0 scale-105 pointer-events-none"
@@ -436,12 +434,12 @@ export default function StoreHomePage() {
                 href={`/shop?category=${encodeURIComponent(cat.name)}`}
                 className="group relative h-56 rounded-3xl overflow-hidden bg-slate-900 shadow-sm hover:shadow-xl transition-all"
               >
-                <img
+                <Image
                   src={meta.coverImage}
                   alt={cat.name}
+                  fill
                   loading="lazy"
-                  width={400}
-                  height={500}
+                  sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
                   className="w-full h-full object-cover opacity-80 group-hover:scale-110 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/35 to-transparent" />
@@ -733,7 +731,7 @@ export default function StoreHomePage() {
 
           <div className="lg:col-span-4 flex justify-center relative z-10">
             <div className="p-6 rounded-3xl bg-white/8 border border-white/15 backdrop-blur-xl flex items-center gap-4 animate-float-slow">
-              <img
+              <Image
                 src="/images/logo_panda_blue.png"
                 alt="Blue Panda App Icon"
                 loading="lazy"
