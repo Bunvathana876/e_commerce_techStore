@@ -5,10 +5,12 @@ Hobby. The backend, database, and Management Dashboard are managed separately.
 
 ## Vercel configuration
 
-- Repository: `https://github.com/Bunvathana876/e_commerce_storefront.git`
+- Public storefront: https://blue-panda-techstore.vercel.app
+- Vercel project: `blue-panda-techstore`
+- Repository: `https://github.com/Bunvathana876/e_commerce_techStore.git`
 - Production branch: `main`
 - Framework: Next.js (native deployment; no Docker or static export)
-- Root directory: repository root
+- Root directory: `storefront`
 - Node.js: 24.x
 - Install command: `npm ci` (include development dependencies for build tooling)
 - Build command: `npm run build`
@@ -24,11 +26,16 @@ NEXT_PUBLIC_ENABLE_DEMO_COUPONS=false
 NEXT_PUBLIC_MANAGEMENT_URL=https://blue-panda-techstore-admin.vercel.app
 ```
 
-`NEXT_PUBLIC_MANAGEMENT_URL` is pending until the Management Dashboard is
-deployed. Leave it unset for now. Existing management/seller links fall back to
-`http://localhost:3001`; they are not usable remotely until this value is set to
-the deployed dashboard HTTPS origin and the Storefront is rebuilt. Customer
-shopping does not require the dashboard.
+Use the public storefront address for shopping and shared links. Vercel's
+deployment-specific URLs (those containing a deployment hash and team name)
+require Vercel authentication and are separate browser origins. Signing in to
+Vercel does not grant those origins access to the backend: an origin absent from
+`CORS_ORIGINS` fails API preflight with `400 Disallowed CORS origin`.
+
+The public address serves the current production deployment and is already
+allowed by the API. Keep deployment protection enabled. If a specific preview
+needs API testing, review and authorize its exact origin separately; do not
+allow every `*.vercel.app` origin.
 
 Never upload `.env.local` or configure database credentials, JWT signing secrets,
 or backend private keys in this frontend. `NEXT_PUBLIC_*` values are public and
@@ -62,7 +69,7 @@ retained. No wildcard hostname is allowed.
 npm ci
 npm audit --omit=dev
 npm audit
-NEXT_PUBLIC_API_URL=https://blue-panda-api-demo.onrender.com/api NEXT_PUBLIC_ENABLE_DEMO_COUPONS=false NEXT_PUBLIC_MANAGEMENT_URL= npm run build
+NEXT_PUBLIC_API_URL=https://e-commerce-techstore-bhu7.onrender.com/api NEXT_PUBLIC_ENABLE_DEMO_COUPONS=false NEXT_PUBLIC_MANAGEMENT_URL=https://blue-panda-techstore-admin.vercel.app npm run build
 npm test
 npm run lint
 ```
@@ -95,6 +102,27 @@ Storefront origin, and permit `GET`, `POST`, `Content-Type`, and `Authorization`
 as needed. Recheck catalog loading and authentication after CORS is configured.
 Render cold starts or backend failures must be reported as failures rather than
 replaced with fabricated orders or payments.
+
+## Deployment URL diagnosis (2026-11-20)
+
+- Production deployment `dpl_2CqEaAWMSsRYrftPAjz5zxQvRp3D` is Ready and was
+  built from commit `1881838`. The public storefront alias serves that deployment.
+- The deployment-specific origin
+  `https://blue-panda-techstore-4o4v2yyi4-vathanabun934-2100s-projects.vercel.app`
+  receives `400 Disallowed CORS origin` from the API preflight. Native Chrome
+  reproduces the resulting product/category loading errors after Vercel sign-in.
+- The public origin passes catalog and login preflights. Products, categories,
+  sellers, and product detail return successful API responses with the matching
+  `Access-Control-Allow-Origin` header.
+- Native Chrome verified Home → Shop → Product → Add to bag → Checkout on the
+  public origin. Checkout requires sign-in. The test guest cart item was removed;
+  no account, order, or payment was created.
+- The inspected product has no image URL in the API and correctly displays an
+  unavailable-image placeholder. Authenticated checkout and mobile layouts were
+  not tested during this diagnosis.
+- The deployment-specific origin has not been added to the backend allowlist.
+  Confirm the Render workspace before inspecting and changing its configuration;
+  preserve all existing origins and add only the exact reviewed origin.
 
 ## Local verification (2026-11-06)
 
