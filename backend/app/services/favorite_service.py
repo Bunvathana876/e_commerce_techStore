@@ -1,6 +1,6 @@
 from fastapi import HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.models.favorite import Favorite
 from app.models.product import Product
@@ -15,7 +15,8 @@ class FavoriteService:
             db.scalars(
                 select(Favorite)
                 .options(
-                    selectinload(Favorite.product).selectinload(Product.category)
+                    joinedload(Favorite.product).joinedload(Product.category),
+                    joinedload(Favorite.product).joinedload(Product.seller),
                 )
                 .where(Favorite.user_id == user_id)
                 .order_by(Favorite.created_at.desc())

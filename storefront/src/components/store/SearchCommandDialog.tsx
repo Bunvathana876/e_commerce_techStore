@@ -35,7 +35,6 @@ const QUICK_SEARCH_CHIPS = [
 export default function SearchCommandDialog() {
   const isOpen = useShopStore((s) => s.isSearchOpen);
   const closeSearch = useShopStore((s) => s.closeSearch);
-  const openSearch = useShopStore((s) => s.openSearch);
 
   const router = useRouter();
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -59,19 +58,6 @@ export default function SearchCommandDialog() {
       })
       .finally(() => setIsLoading(false));
   }, []);
-
-  // Global Cmd+K / Ctrl+K shortcut
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        if (isOpen) closeSearch();
-        else openSearch();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isOpen, openSearch, closeSearch]);
 
   // Load live catalog once when opened
   useEffect(() => {

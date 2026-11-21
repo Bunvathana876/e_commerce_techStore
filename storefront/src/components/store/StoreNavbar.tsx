@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Bell,
@@ -191,8 +192,9 @@ export default function StoreNavbar() {
               className="group flex shrink-0 items-center gap-2.5"
               aria-label="Blue Panda Tech Store home"
             >
-              <img
+              <Image
                 src="/images/logo_panda_blue.png"
+                loading="eager"
                 alt=""
                 width={36}
                 height={36}

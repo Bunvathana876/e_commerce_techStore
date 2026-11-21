@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { FREE_SHIPPING_THRESHOLD, STANDARD_SHIPPING_FEE } from "@/lib/store";
 
 const SHOP_LINKS = [
@@ -56,7 +57,7 @@ export default function MinimalStoreFooter() {
             className="inline-flex items-center gap-3"
             aria-label="Blue Panda home"
           >
-            <img
+            <Image
               src="/images/logo_panda_blue.png"
               alt=""
               width={40}

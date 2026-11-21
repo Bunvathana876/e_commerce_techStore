@@ -2,6 +2,7 @@
 
 import { Suspense, useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle,
@@ -170,8 +171,9 @@ function AuthFormInner({ mode }: AuthFormProps) {
 
           <div>
             <Link href="/" className="inline-flex items-center gap-3">
-              <img
+              <Image
                 src="/images/logo_panda_blue.png"
+                loading="eager"
                 alt=""
                 width={44}
                 height={44}

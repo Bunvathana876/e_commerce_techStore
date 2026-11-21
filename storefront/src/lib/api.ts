@@ -186,16 +186,17 @@ async function request<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint.startsWith("/") ? endpoint : `/${endpoint}`}`;
 
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(options.headers as Record<string, string>),
-  };
+  const headers = new Headers(options.headers);
+  // Bodyless catalog GETs need no JSON content type (and no CORS preflight for guests).
+  if (typeof options.body === "string" && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
 
   const token = getAccessToken();
   const sessionEpoch = getSessionEpoch();
   if (typeof window !== "undefined") {
     if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+      headers.set("Authorization", `Bearer ${token}`);
     }
   }
 

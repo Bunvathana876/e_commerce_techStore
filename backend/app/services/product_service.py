@@ -4,7 +4,7 @@ import math
 from decimal import Decimal
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.category import Category
 from app.models.product import Product
@@ -87,8 +87,8 @@ class ProductService:
         limit = max(1, min(100, limit))
 
         query = select(Product).options(
-            selectinload(Product.category),
-            selectinload(Product.seller),
+            joinedload(Product.category),
+            joinedload(Product.seller),
         )
 
         if active_only:
@@ -166,8 +166,8 @@ class ProductService:
         limit = max(1, min(100, limit))
 
         query = select(Product).where(Product.seller_id == seller_id).options(
-            selectinload(Product.category),
-            selectinload(Product.seller),
+            joinedload(Product.category),
+            joinedload(Product.seller),
         )
 
         if category_id is not None:
@@ -215,8 +215,8 @@ class ProductService:
         product = db.scalar(
             select(Product)
             .options(
-                selectinload(Product.category),
-                selectinload(Product.seller),
+                joinedload(Product.category),
+                joinedload(Product.seller),
             )
             .where(Product.id == product_id)
         )

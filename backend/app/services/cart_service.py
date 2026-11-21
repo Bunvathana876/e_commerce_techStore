@@ -1,7 +1,7 @@
 from decimal import Decimal
 from fastapi import HTTPException, status
 from sqlalchemy import delete, select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.models.cart import CartItem
 from app.models.product import Product
@@ -16,7 +16,8 @@ class CartService:
             db.scalars(
                 select(CartItem)
                 .options(
-                    selectinload(CartItem.product).selectinload(Product.category)
+                    joinedload(CartItem.product).joinedload(Product.category),
+                    joinedload(CartItem.product).joinedload(Product.seller),
                 )
                 .where(CartItem.user_id == user_id)
                 .order_by(CartItem.created_at.desc())

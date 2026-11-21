@@ -83,7 +83,7 @@ export default function QuickViewDialog() {
         dialog.removeEventListener("click", handleBackdropClick);
       }
     };
-  }, [closeQuickView]);
+  }, [closeQuickView, product]);
 
   const isWishlisted = product
     ? wishlist.some((w) => w.id === product.id)
