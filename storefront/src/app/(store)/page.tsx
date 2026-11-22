@@ -9,6 +9,10 @@ import {
   PackageOpen,
   RefreshCw,
   RotateCcw,
+  ShieldCheck,
+  Sparkles,
+  Truck,
+  Zap,
 } from "lucide-react";
 import {
   API_BASE_URL,
@@ -60,11 +64,15 @@ function SectionHeader({
   return (
     <div className="mb-8 flex flex-col gap-3 sm:mb-10 sm:flex-row sm:items-end sm:justify-between sm:gap-6">
       <div>
-        <p className={`bp-eyebrow ${dark ? "text-sky" : ""}`}>{eyebrow}</p>
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
+          dark ? "bg-sky/20 text-sky border border-sky/30" : "bg-blue-50 text-blue-700 border border-blue-200/70"
+        }`}>
+          {eyebrow}
+        </span>
         <h2
           id={id}
-          className={`mt-2 text-3xl font-medium leading-[1.1] sm:text-4xl ${
-            dark ? "text-white" : "text-ink"
+          className={`mt-3 text-3xl font-bold leading-[1.1] sm:text-4xl tracking-tight ${
+            dark ? "text-white" : "text-slate-900"
           }`}
         >
           {title}
@@ -73,15 +81,15 @@ function SectionHeader({
       {href && action && (
         <Link
           href={href}
-          className={`group inline-flex min-h-11 shrink-0 items-center gap-1.5 text-sm font-semibold ${
-            dark ? "text-white" : "text-ink"
+          className={`group inline-flex min-h-11 shrink-0 items-center gap-1.5 text-sm font-semibold transition-colors ${
+            dark ? "text-white" : "text-blue-600 hover:text-blue-700"
           }`}
         >
           <span className="bp-link">{action}</span>
           <ArrowRight
             size={16}
             aria-hidden="true"
-            className="transition-transform duration-200 group-hover:translate-x-0.5"
+            className="transition-transform duration-200 group-hover:translate-x-1"
           />
         </Link>
       )}
@@ -307,6 +315,48 @@ export default function StoreHomePage() {
     <div className="pb-4">
       <PromoHero products={heroProducts} isLoading={isLoading} />
 
+      {/* Store Highlights & Tech Guarantees */}
+      <section aria-label="Store highlights" className="bp-container mt-8 sm:mt-12">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+          <div className="flex items-center gap-3.5 rounded-2xl border border-blue-100 bg-gradient-to-br from-blue-50/70 via-white to-blue-50/30 p-4 shadow-xs transition-all hover:border-blue-300 hover:shadow-md hover:shadow-blue-500/10">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-sm shadow-blue-500/30">
+              <Zap size={20} aria-hidden="true" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-900">Fast Tech Dispatch</h4>
+              <p className="text-xs text-slate-600">Same-day order processing</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3.5 rounded-2xl border border-emerald-100 bg-gradient-to-br from-emerald-50/70 via-white to-teal-50/30 p-4 shadow-xs transition-all hover:border-emerald-300 hover:shadow-md hover:shadow-emerald-500/10">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-500/30">
+              <ShieldCheck size={20} aria-hidden="true" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-900">2-Year Warranty</h4>
+              <p className="text-xs text-slate-600">100% genuine hardware</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3.5 rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/70 via-white to-purple-50/30 p-4 shadow-xs transition-all hover:border-indigo-300 hover:shadow-md hover:shadow-indigo-500/10">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm shadow-indigo-500/30">
+              <Truck size={20} aria-hidden="true" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-900">Free Express Delivery</h4>
+              <p className="text-xs text-slate-600">On all orders over $100</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3.5 rounded-2xl border border-amber-100 bg-gradient-to-br from-amber-50/70 via-white to-orange-50/30 p-4 shadow-xs transition-all hover:border-amber-300 hover:shadow-md hover:shadow-amber-500/10">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-sm shadow-amber-500/30">
+              <Sparkles size={20} aria-hidden="true" />
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-900">30-Day Easy Returns</h4>
+              <p className="text-xs text-slate-600">Risk-free trial guarantee</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {loadError && (
         <div className="bp-container mt-6">
           <div
@@ -461,15 +511,15 @@ export default function StoreHomePage() {
       {!isFiltered && !isLoading && discountedProducts.length > 0 && (
         <section
           aria-labelledby="home-deals"
-          className="mt-(--section-gap) border-y border-line bg-white py-16 sm:py-20"
+          className="mt-(--section-gap) border-y border-amber-200/70 bg-gradient-to-b from-amber-50/60 via-rose-50/30 to-white py-16 sm:py-20"
         >
           <div className="bp-container">
             <SectionHeader
               id="home-deals"
-              eyebrow="Selected offers"
-              title="Worth a closer look"
+              eyebrow="🔥 Selected Hot Deals"
+              title="Verified discounts & offers"
               href="/deals"
-              action="All deals"
+              action="All deals & coupons"
             />
             <ProductGrid products={discountedProducts} />
           </div>

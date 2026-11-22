@@ -89,12 +89,12 @@ export default function FilterToolbar({
     return found ? found.label : "Sort by";
   };
 
-  // One chip shape for every filter control; active state is a filled ink chip.
+  // One chip shape for every filter control; active state is a filled vibrant blue chip.
   const chip = (active: boolean) =>
-    `bp-press inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3.5 text-sm font-medium ${
+    `bp-press inline-flex min-h-11 items-center gap-1.5 rounded-xl border px-3.5 text-sm font-semibold transition-all ${
       active
-        ? "border-ink bg-ink text-white"
-        : "border-line-strong bg-white text-ink hover:border-ink"
+        ? "border-blue-600 bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm shadow-blue-500/30"
+        : "border-slate-200 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-600 shadow-2xs"
     }`;
 
   const menu = "absolute left-0 z-30 mt-2 w-56 rounded-2xl border border-line bg-white p-1.5 shadow-lg";
@@ -272,7 +272,7 @@ export default function FilterToolbar({
             <button
               type="button"
               onClick={onResetFilters}
-              className="bp-press inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-medium text-brand hover:bg-brand-soft"
+              className="bp-press inline-flex min-h-11 items-center gap-1.5 rounded-xl px-3 text-sm font-semibold text-rose-600 hover:bg-rose-50 border border-rose-200/80 transition-colors"
             >
               <RotateCcw size={14} aria-hidden="true" />
               <span>Clear all</span>

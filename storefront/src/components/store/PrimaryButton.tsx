@@ -14,12 +14,12 @@ type ButtonSize = "md" | "lg";
 
 const variants: Record<ButtonVariant, string> = {
   primary:
-    "bg-ink text-white hover:bg-brand disabled:bg-surface-subtle disabled:text-muted",
+    "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20 hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg hover:shadow-blue-500/30 disabled:bg-surface-subtle disabled:text-muted disabled:shadow-none",
   brand:
-    "bg-brand text-white hover:bg-brand-hover disabled:bg-surface-subtle disabled:text-muted",
+    "bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md shadow-blue-500/20 hover:from-blue-700 hover:to-cyan-700 hover:shadow-lg hover:shadow-blue-500/30 disabled:bg-surface-subtle disabled:text-muted disabled:shadow-none",
   secondary:
-    "border border-line-strong bg-white text-ink hover:border-ink disabled:border-line disabled:bg-surface-subtle disabled:text-muted",
-  quiet: "px-0 text-brand hover:text-brand-hover",
+    "border border-slate-200 bg-white text-slate-800 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/50 disabled:border-line disabled:bg-surface-subtle disabled:text-muted",
+  quiet: "px-0 text-blue-600 hover:text-blue-700 font-semibold",
 };
 
 const sizes: Record<ButtonSize, string> = {

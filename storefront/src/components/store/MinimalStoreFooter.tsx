@@ -64,11 +64,19 @@ export default function MinimalStoreFooter() {
               height={40}
               className="h-10 w-10 object-contain"
             />
-            <span className="font-display text-2xl font-semibold tracking-tight">Blue Panda</span>
+            <span className="font-display text-2xl font-bold tracking-tight bp-gradient-brand">Blue Panda</span>
           </Link>
           <p className="mt-5 max-w-sm text-[15px] leading-7 text-muted">
             Considered technology for everyday life. Explore the live Blue Panda collection.
           </p>
+          <div className="mt-5 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200/60">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" aria-hidden="true" /> Live Catalog Sync
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700 border border-blue-200/60">
+              Verified Tech Store
+            </span>
+          </div>
         </div>
 
         <div className="lg:col-span-2">

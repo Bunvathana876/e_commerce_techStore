@@ -13,10 +13,13 @@ import {
   Menu,
   Package,
   Search,
+  ShieldCheck,
   ShoppingBag,
+  Sparkles,
   Store,
   User,
   X,
+  Zap,
 } from "lucide-react";
 import {
   notificationsApi,
@@ -171,6 +174,28 @@ export default function StoreNavbar() {
 
   return (
     <>
+      {/* Top Tech Store Perks Ribbon */}
+      <div className="bg-gradient-to-r from-blue-700 via-indigo-600 to-cyan-600 text-white text-xs font-medium py-1.5 px-4 shadow-xs">
+        <div className="bp-container flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-0.5">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold backdrop-blur-xs">
+              <Zap size={12} className="text-amber-300" aria-hidden="true" /> Express Tech Delivery
+            </span>
+            <span className="hidden sm:inline-flex items-center gap-1.5 text-white/90 text-[11px]">
+              <ShieldCheck size={12} className="text-emerald-300" aria-hidden="true" /> Genuine Hardware & 2-Yr Warranty
+            </span>
+            <span className="hidden md:inline-flex items-center gap-1.5 text-white/90 text-[11px]">
+              <Sparkles size={12} className="text-cyan-200" aria-hidden="true" /> Free Shipping On Orders Over $100
+            </span>
+          </div>
+          <div className="hidden lg:flex items-center gap-4 text-white/90 text-[11px] shrink-0 font-medium">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" /> Live Tech Support
+            </span>
+          </div>
+        </div>
+      </div>
+
       <header className="sticky top-0 z-40 border-b border-line bg-paper/95 backdrop-blur supports-[backdrop-filter]:bg-paper/90">
         <div className="bp-container">
           <div className="flex h-(--header-h) items-center justify-between gap-3 sm:gap-4">
@@ -200,7 +225,7 @@ export default function StoreNavbar() {
                 height={36}
                 className="h-9 w-9 object-contain"
               />
-              <span className="font-display hidden text-xl font-semibold tracking-tight text-ink min-[400px]:inline">
+              <span className="font-display hidden text-xl font-bold tracking-tight bp-gradient-brand min-[400px]:inline">
                 Blue Panda
               </span>
             </Link>
@@ -217,10 +242,10 @@ export default function StoreNavbar() {
                     key={link.href}
                     href={link.href}
                     aria-current={active ? "page" : undefined}
-                    className={`relative inline-flex h-(--header-h) items-center text-sm font-medium transition-colors after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:origin-left after:bg-ink after:transition-transform after:duration-200 ${
+                    className={`relative inline-flex h-(--header-h) items-center text-sm font-medium transition-colors after:absolute after:inset-x-0 after:bottom-0 after:h-0.5 after:origin-left after:transition-transform after:duration-200 ${
                       active
-                        ? "text-ink after:scale-x-100"
-                        : "text-ink-soft after:scale-x-0 hover:text-ink hover:after:scale-x-100"
+                        ? "text-blue-600 font-semibold after:scale-x-100 after:bg-blue-600"
+                        : "text-slate-700 after:scale-x-0 after:bg-blue-600 hover:text-blue-600 hover:after:scale-x-100"
                     }`}
                   >
                     {link.label}
@@ -253,7 +278,7 @@ export default function StoreNavbar() {
               >
                 <Heart size={20} aria-hidden="true" />
                 {wishlistCount > 0 && (
-                  <span className="absolute right-1 top-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-ink px-1 text-[10px] font-bold text-white ring-2 ring-white">
+                  <span className="absolute right-1 top-1 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-pink-500 px-1 text-[10px] font-bold text-white shadow-xs ring-2 ring-white">
                     {wishlistCount > 99 ? "99+" : wishlistCount}
                   </span>
                 )}
@@ -412,12 +437,12 @@ export default function StoreNavbar() {
                 type="button"
                 onClick={openCart}
                 aria-label={`Open shopping cart${cartCount ? `, ${cartCount} items` : ""}`}
-                className="bp-press relative inline-flex h-11 min-w-11 items-center justify-center gap-2 border border-ink px-3 text-sm font-medium text-ink hover:bg-ink hover:text-white sm:px-4"
+                className="bp-press relative inline-flex h-11 min-w-11 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-blue-50/80 px-3 text-sm font-semibold text-blue-700 shadow-xs hover:bg-blue-600 hover:text-white sm:px-4 transition-all"
               >
                 <ShoppingBag size={18} aria-hidden="true" />
                 <span className="hidden sm:inline">Bag</span>
                 {cartCount > 0 && (
-                  <span className="bp-price flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1 text-[11px] font-bold text-white">
+                  <span className="bp-price flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 text-white group-hover:bg-white group-hover:text-blue-600 px-1 text-[11px] font-bold shadow-xs">
                     {cartCount > 99 ? "99+" : cartCount}
                   </span>
                 )}

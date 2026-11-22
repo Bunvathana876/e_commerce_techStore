@@ -29,8 +29,12 @@ export default function PageHeader({
       className={`flex flex-col gap-6 border-b border-line pb-8 sm:pb-10 lg:flex-row lg:items-end lg:justify-between ${className}`}
     >
       <div className="max-w-2xl">
-        {eyebrow && <p className="bp-eyebrow">{eyebrow}</p>}
-        <h1 className="mt-3 text-4xl font-medium leading-[1.08] text-ink sm:text-5xl lg:text-[3.5rem]">
+        {eyebrow && (
+          <p className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200/70 px-3 py-1 text-xs font-bold text-blue-700 uppercase tracking-wider">
+            {eyebrow}
+          </p>
+        )}
+        <h1 className="mt-3 text-4xl font-bold leading-[1.08] text-slate-900 sm:text-5xl lg:text-[3.5rem] tracking-tight">
           {title}
         </h1>
         {description && (
