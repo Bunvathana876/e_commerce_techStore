@@ -70,7 +70,11 @@ function ShopCatalogContent() {
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   // Load Catalog Data
-  const loadCatalogData = useCallback(() => {
+  const loadCatalogData = useCallback((param?: unknown) => {
+    const isRetry =
+      typeof param === "object" && param !== null && "isRetry" in param
+        ? Boolean((param as { isRetry?: boolean }).isRetry)
+        : false;
     setIsLoading(true);
     setLoadError(null);
     Promise.allSettled([
@@ -78,11 +82,22 @@ function ShopCatalogContent() {
       fetchStoreCategories(),
       fetchStoreSellers(),
     ]).then(([prodRes, catRes, selRes]) => {
+      const prodFailed =
+        prodRes.status !== "fulfilled" ||
+        (!prodRes.value.isLiveBackend && prodRes.value.products.length === 0);
+
+      if (prodFailed && !isRetry && typeof window !== "undefined") {
+        setTimeout(() => {
+          loadCatalogData({ isRetry: true });
+        }, 2500);
+        return;
+      }
+
       if (prodRes.status === "fulfilled") {
         setProducts(prodRes.value.products);
         if (!prodRes.value.isLiveBackend && prodRes.value.products.length === 0) {
           setLoadError(
-            "We couldn't load the catalog. Please try again."
+            prodRes.value.error || "We couldn't load the catalog. Please try again."
           );
         }
       } else {
@@ -787,7 +802,7 @@ function ShopCatalogContent() {
               </p>
               <button
                 type="button"
-                onClick={loadCatalogData}
+                onClick={() => loadCatalogData(false)}
                 className="bp-press mt-6 inline-flex min-h-11 items-center rounded-xl border border-line-strong bg-white px-5 text-sm font-semibold text-ink hover:border-ink"
               >
                 Try again

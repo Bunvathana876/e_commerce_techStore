@@ -145,7 +145,11 @@ export default function StoreHomePage() {
   const [inStockOnly, setInStockOnly] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<string>("featured");
 
-  const loadHomepage = useCallback(async () => {
+  const loadHomepage = useCallback(async (param?: unknown) => {
+    const isRetry =
+      typeof param === "object" && param !== null && "isRetry" in param
+        ? Boolean((param as { isRetry?: boolean }).isRetry)
+        : false;
     setIsLoading(true);
     setLoadError(null);
     setProductsError(false);
@@ -183,6 +187,13 @@ export default function StoreHomePage() {
       setCategories([]);
       setCategoriesError(true);
       requestFailed = true;
+    }
+
+    if (requestFailed && !isRetry && typeof window !== "undefined") {
+      setTimeout(() => {
+        void loadHomepage({ isRetry: true });
+      }, 2500);
+      return;
     }
 
     if (requestFailed) {

@@ -13,13 +13,10 @@ import {
   Menu,
   Package,
   Search,
-  ShieldCheck,
   ShoppingBag,
-  Sparkles,
   Store,
   User,
   X,
-  Zap,
 } from "lucide-react";
 import {
   notificationsApi,
@@ -174,28 +171,6 @@ export default function StoreNavbar() {
 
   return (
     <>
-      {/* Top Tech Store Perks Ribbon */}
-      <div className="bg-gradient-to-r from-blue-700 via-indigo-600 to-cyan-600 text-white text-xs font-medium py-1.5 px-4 shadow-xs">
-        <div className="bp-container flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-0.5">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-2.5 py-0.5 text-[11px] font-semibold backdrop-blur-xs">
-              <Zap size={12} className="text-amber-300" aria-hidden="true" /> Express Tech Delivery
-            </span>
-            <span className="hidden sm:inline-flex items-center gap-1.5 text-white/90 text-[11px]">
-              <ShieldCheck size={12} className="text-emerald-300" aria-hidden="true" /> Genuine Hardware & 2-Yr Warranty
-            </span>
-            <span className="hidden md:inline-flex items-center gap-1.5 text-white/90 text-[11px]">
-              <Sparkles size={12} className="text-cyan-200" aria-hidden="true" /> Free Shipping On Orders Over $100
-            </span>
-          </div>
-          <div className="hidden lg:flex items-center gap-4 text-white/90 text-[11px] shrink-0 font-medium">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" aria-hidden="true" /> Live Tech Support
-            </span>
-          </div>
-        </div>
-      </div>
-
       <header className="sticky top-0 z-40 border-b border-line bg-paper/95 backdrop-blur supports-[backdrop-filter]:bg-paper/90">
         <div className="bp-container">
           <div className="flex h-(--header-h) items-center justify-between gap-3 sm:gap-4">

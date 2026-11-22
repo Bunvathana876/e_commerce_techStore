@@ -35,7 +35,11 @@ export default function DealsPage() {
   const [couponsError, setCouponsError] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
-  const loadDealsData = useCallback(() => {
+  const loadDealsData = useCallback((param?: unknown) => {
+    const isRetry =
+      typeof param === "object" && param !== null && "isRetry" in param
+        ? Boolean((param as { isRetry?: boolean }).isRetry)
+        : false;
     setLoading(true);
     setProductsError(null);
     setCouponsError(null);
@@ -43,6 +47,17 @@ export default function DealsPage() {
       fetchStoreProducts(),
       fetchStoreCoupons(),
     ]).then(([prodRes, coupRes]) => {
+      const prodFailed =
+        prodRes.status !== "fulfilled" ||
+        (!prodRes.value.isLiveBackend && prodRes.value.products.length === 0);
+
+      if (prodFailed && !isRetry && typeof window !== "undefined") {
+        setTimeout(() => {
+          loadDealsData({ isRetry: true });
+        }, 2500);
+        return;
+      }
+
       if (prodRes.status === "fulfilled") {
         setProducts(prodRes.value.products);
         if (!prodRes.value.isLiveBackend && prodRes.value.products.length === 0) {

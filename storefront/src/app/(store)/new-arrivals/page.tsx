@@ -27,13 +27,28 @@ export default function NewArrivalsPage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [onlyInStock, setOnlyInStock] = useState<boolean>(false);
 
-  const loadArrivals = useCallback(() => {
+  const loadArrivals = useCallback((param?: unknown) => {
+    const isRetry =
+      typeof param === "object" && param !== null && "isRetry" in param
+        ? Boolean((param as { isRetry?: boolean }).isRetry)
+        : false;
     setLoading(true);
     setLoadError(null);
     Promise.allSettled([
       fetchStoreProducts(),
       fetchStoreCategories(),
     ]).then(([prodRes, catRes]) => {
+      const prodFailed =
+        prodRes.status !== "fulfilled" ||
+        (!prodRes.value.isLiveBackend && prodRes.value.products.length === 0);
+
+      if (prodFailed && !isRetry && typeof window !== "undefined") {
+        setTimeout(() => {
+          loadArrivals({ isRetry: true });
+        }, 2500);
+        return;
+      }
+
       if (prodRes.status === "fulfilled") {
         setProducts(prodRes.value.products);
         if (!prodRes.value.isLiveBackend && prodRes.value.products.length === 0) {
