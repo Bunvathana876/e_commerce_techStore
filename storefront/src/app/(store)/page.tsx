@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -144,6 +144,7 @@ export default function StoreHomePage() {
   const [minRating, setMinRating] = useState<number>(0);
   const [inStockOnly, setInStockOnly] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<string>("featured");
+  const retryRef = useRef<((param?: unknown) => Promise<void>) | null>(null);
 
   const loadHomepage = useCallback(async (param?: unknown) => {
     const isRetry =
@@ -191,7 +192,7 @@ export default function StoreHomePage() {
 
     if (requestFailed && !isRetry && typeof window !== "undefined") {
       setTimeout(() => {
-        void loadHomepage({ isRetry: true });
+        void retryRef.current?.({ isRetry: true });
       }, 2500);
       return;
     }
@@ -203,6 +204,10 @@ export default function StoreHomePage() {
     }
     setIsLoading(false);
   }, []);
+
+  useEffect(() => {
+    retryRef.current = loadHomepage;
+  }, [loadHomepage]);
 
   useEffect(() => {
     void loadHomepage();

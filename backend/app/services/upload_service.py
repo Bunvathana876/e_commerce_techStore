@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.models.product import Product
 from app.models.user import User
 from app.services.authorization_service import AuthorizationService
+from app.services.storage_service import StorageService, StoredFileResult
 
 READ_CHUNK_SIZE = 64 * 1024
 
@@ -33,6 +34,12 @@ FORMAT_TO_CANONICAL_EXT: dict[str, str] = {
     "jpeg": ".jpg",
     "png": ".png",
     "webp": ".webp",
+}
+
+FORMAT_TO_CONTENT_TYPE: dict[str, str] = {
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+    "webp": "image/webp",
 }
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -86,7 +93,7 @@ class UploadService:
                     )
 
     @staticmethod
-    def validate_and_store_product_image(file: UploadFile) -> str:
+    def validate_and_store_product_image_result(file: UploadFile) -> StoredFileResult:
         declared_format = UploadService._validate_upload_metadata(
             filename=file.filename,
             content_type=file.content_type,
@@ -101,10 +108,15 @@ class UploadService:
             max_dimension=settings.MAX_IMAGE_DIMENSION,
             max_pixels=settings.MAX_IMAGE_PIXELS,
         )
-        return UploadService._atomic_store_bytes(
+        return StorageService.store_product_image(
             data=raw_bytes,
             canonical_ext=FORMAT_TO_CANONICAL_EXT[detected_format],
+            content_type=FORMAT_TO_CONTENT_TYPE[detected_format],
         )
+
+    @staticmethod
+    def validate_and_store_product_image(file: UploadFile) -> str:
+        return UploadService.validate_and_store_product_image_result(file).filename
 
     @staticmethod
     def _validate_upload_metadata(filename: str | None, content_type: str | None) -> str:

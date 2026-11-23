@@ -3,244 +3,147 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { AlertCircle, ArrowLeft } from "lucide-react";
 import {
-  ArrowLeft,
-  ArrowDownLeft,
-  Calendar,
-  Hash,
-  FileText,
-  CreditCard,
-  Loader2,
-  AlertCircle,
-  ShoppingCart,
-} from "lucide-react";
-import { ordersApi, ApiOrder } from "@/lib/api";
+  paymentsApi,
+  refundsApi,
+  type ApiPaymentTransaction,
+  type ApiRefund,
+} from "@/lib/api";
 
 export default function TransactionDetailPage() {
-  const params = useParams();
-  const id = params.id as string;
-  const [order, setOrder] = useState<ApiOrder | null>(null);
+  const params = useParams<{ id: string }>();
+  const identifier = decodeURIComponent(params?.id || "");
+
+  const [payment, setPayment] = useState<ApiPaymentTransaction | null>(null);
+  const [refund, setRefund] = useState<ApiRefund | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchTransactionOrder() {
+    let active = true;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      setPayment(null);
+      setRefund(null);
       try {
-        setLoading(true);
-        setError(null);
-        const orderId = parseInt(id.replace(/^TXN-/, "").replace(/^ORD-/, ""), 10);
-        if (isNaN(orderId)) {
-          setError("Invalid transaction ID format.");
-          return;
-        }
-        const res = await ordersApi.get(orderId);
-        if (res.success && res.data) {
-          setOrder(res.data);
+        if (identifier.toUpperCase().startsWith("REF-")) {
+          const res = await refundsApi.getById(identifier);
+          if (active) setRefund(res.data);
         } else {
-          setError(res.message || "Transaction record not found.");
+          const res = await paymentsApi.getById(identifier);
+          if (active) setPayment(res.data);
         }
-      } catch (err: any) {
-        setError(err.message || "Failed to load transaction details.");
+      } catch (err) {
+        if (active) {
+          setError(
+            err instanceof Error ? err.message : "Transaction record not found."
+          );
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
-    }
-
-    if (id) {
-      fetchTransactionOrder();
-    }
-  }, [id]);
-
-  if (loading) {
-    return (
-      <div className="py-24 flex flex-col items-center justify-center text-[#7699F0]">
-        <Loader2 size={36} className="animate-spin mb-3" />
-        <p className="text-sm font-medium text-gray-600">
-          Loading transaction details from PostgreSQL...
-        </p>
-      </div>
-    );
-  }
-
-  if (error || !order) {
-    return (
-      <div className="max-w-xl mx-auto py-20 text-center space-y-4">
-        <div className="w-14 h-14 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mx-auto">
-          <AlertCircle size={28} />
-        </div>
-        <h2 className="text-xl font-bold text-gray-900">Transaction Not Found</h2>
-        <p className="text-sm text-gray-500">
-          {error || "The financial transaction does not exist or has been removed."}
-        </p>
-        <Link
-          href="/admin/transactions"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7699F0] text-white rounded-xl text-sm font-semibold hover:bg-blue-600 transition"
-        >
-          <ArrowLeft size={16} /> Back to Transactions
-        </Link>
-      </div>
-    );
-  }
-
-  const rawStatus = order.payment_status || (order.status === "completed" || order.status === "delivered" ? "Completed" : order.status === "cancelled" ? "Failed" : "Pending");
-  const normalizedStatus =
-    rawStatus.toLowerCase() === "completed" || rawStatus.toLowerCase() === "paid"
-      ? "Completed"
-      : rawStatus.toLowerCase() === "cancelled"
-      ? "Failed"
-      : "Pending";
-
-  const amount = Number(order.total) || 0;
-  const paymentMethod = order.payment_method || "ABA Bank / KHQR";
-  const dateObj = new Date(order.created_at);
-  const formattedDate = !isNaN(dateObj.getTime())
-    ? dateObj.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })
-    : "N/A";
-  const formattedTime = !isNaN(dateObj.getTime())
-    ? dateObj.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
-    : "N/A";
-
-  const customerName = order.user?.name || `Customer #${order.user_id}`;
+    };
+    if (identifier) void load();
+    return () => {
+      active = false;
+    };
+  }, [identifier]);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 pb-10">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link
-          href="/admin/transactions"
-          className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
-        >
-          <ArrowLeft size={18} />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Transaction Details</h1>
-          <p className="text-sm text-gray-500 mt-0.5">TXN-{order.id}</p>
+    <div className="space-y-6 max-w-4xl">
+      <Link
+        href="/admin/transactions"
+        className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+      >
+        <ArrowLeft size={16} />
+        Back to Transactions
+      </Link>
+
+      {loading ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-8 text-sm text-slate-500">
+          Loading transaction details...
         </div>
-      </div>
-
-      {/* Amount Card */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 bg-emerald-50">
-          <ArrowDownLeft size={28} className="text-emerald-600" />
+      ) : error ? (
+        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-rose-700 text-sm flex items-center gap-2">
+          <AlertCircle size={18} />
+          <span>{error}</span>
         </div>
-
-        <p className="text-sm text-gray-500">Money In (Payment)</p>
-        <p className="text-4xl font-bold mt-1 text-emerald-600">
-          +${amount.toFixed(2)}
-        </p>
-
-        <div className="flex items-center justify-center gap-3 mt-4">
-          <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
-            Order Payment
-          </span>
-          <span
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-              normalizedStatus === "Completed"
-                ? "bg-emerald-50 text-emerald-700"
-                : normalizedStatus === "Failed"
-                ? "bg-red-50 text-red-700"
-                : "bg-amber-50 text-amber-700"
-            }`}
-          >
-            <span
-              className={`w-1.5 h-1.5 rounded-full ${
-                normalizedStatus === "Completed"
-                  ? "bg-emerald-500"
-                  : normalizedStatus === "Failed"
-                  ? "bg-red-500"
-                  : "bg-amber-500"
-              }`}
-            />
-            {normalizedStatus}
-          </span>
-        </div>
-      </div>
-
-      {/* Details */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
-        <h2 className="font-semibold text-gray-900">Transaction Information</h2>
-
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center">
-              <FileText size={18} className="text-gray-500" />
-            </div>
+      ) : payment ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
-              <p className="text-xs text-gray-400">Description</p>
-              <p className="text-sm font-medium text-gray-900">
-                Customer payment received from {customerName}
-              </p>
+              <p className="text-xs font-semibold text-emerald-700 uppercase">Payment Capture</p>
+              <h1 className="text-xl font-bold font-mono text-slate-900 mt-0.5">
+                {payment.transaction_ref}
+              </h1>
             </div>
+            <p className="text-2xl font-bold text-emerald-700">
+              +${Number(payment.amount).toFixed(2)} {payment.currency}
+            </p>
           </div>
-
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center">
-              <Hash size={18} className="text-gray-500" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-xs text-slate-500 block">Method</span>
+              <span className="font-semibold text-slate-900">{payment.payment_method}</span>
             </div>
             <div>
-              <p className="text-xs text-gray-400">Payment Reference</p>
-              <p className="text-sm font-medium text-gray-900 font-mono">
-                PAY-{order.id}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center">
-              <CreditCard size={18} className="text-gray-500" />
+              <span className="text-xs text-slate-500 block">Status</span>
+              <span className="font-semibold text-slate-900 capitalize">{payment.status}</span>
             </div>
             <div>
-              <p className="text-xs text-gray-400">Payment Method</p>
-              <p className="text-sm font-medium text-gray-900">
-                {paymentMethod}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center">
-              <Calendar size={18} className="text-gray-500" />
+              <span className="text-xs text-slate-500 block">Order</span>
+              <Link href={`/admin/orders/${payment.order_id}`} className="font-semibold text-blue-600 hover:underline">
+                Order #{payment.order_id}
+              </Link>
             </div>
             <div>
-              <p className="text-xs text-gray-400">Timestamp</p>
-              <p className="text-sm font-medium text-gray-900">
-                {formattedDate} at {formattedTime}
-              </p>
+              <span className="text-xs text-slate-500 block">Provider Reference</span>
+              <span className="font-mono text-xs text-slate-800">{payment.provider_reference || "None"}</span>
             </div>
           </div>
         </div>
-      </div>
-
-      {/* Related Links */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-3">
-        <h2 className="font-semibold text-gray-900 mb-2">Related Records</h2>
-
-        <Link
-          href={`/admin/payments/PAY-${order.id}`}
-          className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-blue-50 transition group"
-        >
-          <span className="text-sm text-gray-600 flex items-center gap-2">
-            <CreditCard size={16} className="text-[#7699F0]" />
-            Payment Gateway Voucher
-          </span>
-          <span className="text-sm font-medium text-[#7699F0] group-hover:underline">
-            PAY-{order.id} →
-          </span>
-        </Link>
-
-        <Link
-          href={`/admin/orders/${order.id}`}
-          className="flex items-center justify-between p-3 rounded-xl bg-gray-50 hover:bg-blue-50 transition group"
-        >
-          <span className="text-sm text-gray-600 flex items-center gap-2">
-            <ShoppingCart size={16} className="text-[#7699F0]" />
-            Order Details
-          </span>
-          <span className="text-sm font-medium text-[#7699F0] group-hover:underline">
-            #{order.id} →
-          </span>
-        </Link>
-      </div>
+      ) : refund ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+              <p className="text-xs font-semibold text-rose-700 uppercase">Refund Ledger Record</p>
+              <h1 className="text-xl font-bold font-mono text-slate-900 mt-0.5">
+                {refund.refund_number}
+              </h1>
+            </div>
+            <p className="text-2xl font-bold text-rose-700">
+              -${Number(refund.amount).toFixed(2)} {refund.currency}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="text-xs text-slate-500 block">Refund Method</span>
+              <span className="font-semibold text-slate-900">{refund.refund_method}</span>
+            </div>
+            <div>
+              <span className="text-xs text-slate-500 block">Status</span>
+              <span className="font-semibold text-slate-900 capitalize">{refund.status}</span>
+            </div>
+            <div>
+              <span className="text-xs text-slate-500 block">Order</span>
+              <Link href={`/admin/orders/${refund.order_id}`} className="font-semibold text-blue-600 hover:underline">
+                Order #{refund.order_id}
+              </Link>
+            </div>
+            <div>
+              <span className="text-xs text-slate-500 block">Accounting Journal Entries</span>
+              <Link
+                href={`/admin/refunds/${encodeURIComponent(refund.refund_number)}`}
+                className="font-semibold text-blue-600 hover:underline"
+              >
+                Inspect {refund.ledger_entries.length} ledger postings →
+              </Link>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

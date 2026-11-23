@@ -1,340 +1,279 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { AlertCircle, ArrowLeft, BookOpen, CheckCircle2, Warehouse } from "lucide-react";
 import {
-  ArrowLeft,
-  Package,
-  Plus,
-  Minus,
-  Save,
-  Loader2,
-  CheckCircle2,
-  AlertCircle,
-} from "lucide-react";
-import { productsApi, ApiProduct } from "@/lib/api";
+  inventoryApi,
+  productsApi,
+  type ApiInventoryJournalEntry,
+  type ApiProduct,
+  type ApiWarehouse,
+  type ApiWarehouseStock,
+} from "@/lib/api";
 
-export default function InventoryDetailPage() {
-  const params = useParams();
-  const id = params.id as string;
-  const productId = Number(id);
+export default function ProductInventoryAuditPage() {
+  const params = useParams<{ id: string }>();
+  const productId = Number(params?.id);
 
   const [product, setProduct] = useState<ApiProduct | null>(null);
+  const [warehouses, setWarehouses] = useState<ApiWarehouse[]>([]);
+  const [stocks, setStocks] = useState<ApiWarehouseStock[]>([]);
+  const [ledger, setLedger] = useState<ApiInventoryJournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [adjustAmount, setAdjustAmount] = useState("");
-  const [adjustType, setAdjustType] = useState<"add" | "remove">("add");
-  const [reason, setReason] = useState("");
-  const [notification, setNotification] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
 
-  const lowStockThreshold = 10;
+  const [adjForm, setAdjForm] = useState({
+    warehouse_id: "",
+    quantity_delta: "",
+    unit_cost: "0.00",
+    reason: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
 
-  const loadProduct = useCallback(async () => {
-    if (isNaN(productId)) {
-      setNotification({ type: "error", text: "Invalid Product ID." });
-      setLoading(false);
-      return;
-    }
+  const loadData = useCallback(async () => {
+    if (!Number.isFinite(productId) || productId <= 0) return;
     setLoading(true);
+    setError(null);
     try {
-      const res = await productsApi.get(productId);
-      if (res.success && res.data) {
-        setProduct(res.data);
-      } else {
-        setNotification({ type: "error", text: res.message || "Product not found." });
+      const [prodRes, whRes, stRes, ledRes] = await Promise.all([
+        productsApi.get(productId),
+        inventoryApi.getWarehouses(),
+        inventoryApi.getProductStocks(productId),
+        inventoryApi.getLedger({ product_id: productId, limit: 50 }),
+      ]);
+      setProduct(prodRes.data);
+      const whList: ApiWarehouse[] = whRes.data || [];
+      setWarehouses(whList);
+      setStocks(stRes.data || []);
+      setLedger(ledRes.data?.entries || []);
+      if (whList.length > 0 && !adjForm.warehouse_id) {
+        const defWh = whList.find((w: ApiWarehouse) => w.is_default) || whList[0];
+        setAdjForm((prev) => ({ ...prev, warehouse_id: String(defWh.id) }));
       }
-    } catch (err: any) {
-      setNotification({
-        type: "error",
-        text: err.message || "Failed to load product from PostgreSQL.",
-      });
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Failed to load product inventory."
+      );
     } finally {
       setLoading(false);
     }
-  }, [productId]);
+  }, [adjForm.warehouse_id, productId]);
 
   useEffect(() => {
-    loadProduct();
-  }, [loadProduct]);
+    void loadData();
+  }, [loadData]);
 
   const handleAdjust = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!product) return;
-
-    const amount = parseInt(adjustAmount, 10);
-    if (isNaN(amount) || amount <= 0) {
-      setNotification({ type: "error", text: "Please enter a valid stock amount." });
+    const delta = parseInt(adjForm.quantity_delta, 10);
+    if (Number.isNaN(delta) || delta === 0) {
+      setError("Enter a non-zero integer adjustment (+/-).");
       return;
     }
-
-    const currentStock = Number(product.stock) || 0;
-    const newStock =
-      adjustType === "add" ? currentStock + amount : Math.max(0, currentStock - amount);
-
-    setSaving(true);
-    setNotification(null);
-
+    setSubmitting(true);
+    setError(null);
+    setFeedback(null);
     try {
-      const res = await productsApi.update(productId, { stock: newStock });
-      if (res.success && res.data) {
-        setProduct(res.data);
-        setAdjustAmount("");
-        setReason("");
-        setNotification({
-          type: "success",
-          text: `Stock successfully updated to ${newStock} units in PostgreSQL database!`,
-        });
-      }
-    } catch (err: any) {
-      setNotification({
-        type: "error",
-        text: err.message || "Failed to update stock in database.",
+      const res = await inventoryApi.createAdjustment({
+        product_id: productId,
+        warehouse_id: adjForm.warehouse_id ? Number(adjForm.warehouse_id) : undefined,
+        quantity_delta: delta,
+        unit_cost: parseFloat(adjForm.unit_cost) || 0,
+        reason: adjForm.reason.trim(),
       });
+      setFeedback(`Posted adjustment ${res.data.entry_number} cleanly.`);
+      setAdjForm((prev) => ({ ...prev, quantity_delta: "", reason: "" }));
+      await loadData();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to post adjustment.");
     } finally {
-      setSaving(false);
+      setSubmitting(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="py-24 flex flex-col items-center justify-center text-[#7699F0]">
-        <Loader2 size={36} className="animate-spin mb-3" />
-        <p className="text-sm font-medium text-gray-600">
-          Loading inventory record from PostgreSQL...
-        </p>
-      </div>
-    );
-  }
-
-  if (!product) {
-    return (
-      <div className="max-w-xl mx-auto py-20 text-center space-y-4">
-        <div className="w-14 h-14 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mx-auto">
-          <AlertCircle size={28} />
-        </div>
-        <h2 className="text-xl font-bold text-gray-900">Inventory Item Not Found</h2>
-        <p className="text-sm text-gray-500">
-          Product ID #{id} was not found in PostgreSQL database.
-        </p>
-        <Link
-          href="/admin/inventory"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7699F0] text-white rounded-xl text-sm font-semibold hover:bg-blue-600 transition"
-        >
-          <ArrowLeft size={16} /> Back to Inventory
-        </Link>
-      </div>
-    );
-  }
-
-  const stock = Number(product.stock) || 0;
-  const currentStatus =
-    stock === 0 ? "Out of Stock" : stock <= lowStockThreshold ? "Low Stock" : "In Stock";
-
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-10">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/admin/inventory"
-            className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
-          >
-            <ArrowLeft size={18} />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Manage Stock</h1>
-            <p className="text-sm text-gray-500 mt-0.5">PostgreSQL Product #{product.id}</p>
+    <div className="space-y-6 max-w-5xl">
+      <Link
+        href="/admin/inventory"
+        className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+      >
+        <ArrowLeft size={16} />
+        Back to Multi-Warehouse Inventory
+      </Link>
+
+      {loading ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-8 text-sm text-slate-500">
+          Loading SKU warehouse stocks & ledger...
+        </div>
+      ) : error && !product ? (
+        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-rose-700 text-sm flex items-center gap-2">
+          <AlertCircle size={18} />
+          <span>{error}</span>
+        </div>
+      ) : product ? (
+        <>
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold text-blue-600 uppercase">
+                SKU #{product.id}
+              </p>
+              <h1 className="text-2xl font-bold text-slate-900 mt-0.5">{product.name}</h1>
+              <p className="text-xs text-slate-500 mt-1">
+                Sell price: ${Number(product.price).toFixed(2)} | Category:{" "}
+                {product.category?.name || "Uncategorized"}
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-slate-500">Aggregate On-Hand Stock</p>
+              <p className="text-3xl font-bold text-slate-900">{product.stock}</p>
+            </div>
           </div>
-        </div>
 
-        <Link
-          href={`/admin/products/${product.id}`}
-          className="px-4 py-2 text-sm font-medium text-[#7699F0] bg-blue-50 hover:bg-blue-100 rounded-xl transition"
-        >
-          View Full Product →
-        </Link>
-      </div>
+          {/* Per-Warehouse Breakdown */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {stocks.map((st) => (
+              <div
+                key={st.id}
+                className="bg-white rounded-2xl border border-slate-200 p-5 space-y-1.5"
+              >
+                <div className="flex items-center gap-2 text-xs font-semibold text-blue-700">
+                  <Warehouse size={14} />
+                  <span>{st.warehouse_code}</span>
+                </div>
+                <p className="font-bold text-slate-900">{st.warehouse_name}</p>
+                <div className="flex justify-between pt-2 text-sm">
+                  <span className="text-slate-500">On Hand:</span>
+                  <span className="font-bold text-slate-900">{st.quantity}</span>
+                </div>
+              </div>
+            ))}
+          </div>
 
-      {/* Notification */}
-      {notification && (
-        <div
-          className={`flex items-center gap-2 p-4 rounded-xl text-sm border ${
-            notification.type === "success"
-              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-              : "bg-red-50 border-red-200 text-red-800"
-          }`}
-        >
-          {notification.type === "success" ? (
-            <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
-          ) : (
-            <AlertCircle size={18} className="text-red-600 flex-shrink-0" />
-          )}
-          <span>{notification.text}</span>
-        </div>
-      )}
+          {/* Warehouse-Scoped Adjustment */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+            <h2 className="font-bold text-slate-900">
+              Record Immutable Stock Adjustment
+            </h2>
+            {feedback && (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                <CheckCircle2 size={15} />
+                {feedback}
+              </div>
+            )}
+            {error && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle size={15} />
+                {error}
+              </div>
+            )}
 
-      {/* Product Card */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <div className="flex items-center gap-5">
-          <div className="w-20 h-20 rounded-2xl overflow-hidden bg-gray-50 border border-gray-100 flex items-center justify-center flex-shrink-0">
-            {product.image_url ? (
-              <img
-                src={product.image_url}
-                alt={product.name}
-                className="w-full h-full object-cover"
+            <form onSubmit={handleAdjust} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <select
+                required
+                value={adjForm.warehouse_id}
+                onChange={(e) => setAdjForm({ ...adjForm, warehouse_id: e.target.value })}
+                className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+              >
+                {warehouses.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.code} — {w.name}
+                  </option>
+                ))}
+              </select>
+              <input
+                type="number"
+                required
+                value={adjForm.quantity_delta}
+                onChange={(e) => setAdjForm({ ...adjForm, quantity_delta: e.target.value })}
+                placeholder="Delta (+5 or -3)"
+                className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
               />
+              <input
+                type="number"
+                step="0.01"
+                min={0}
+                value={adjForm.unit_cost}
+                onChange={(e) => setAdjForm({ ...adjForm, unit_cost: e.target.value })}
+                placeholder="Unit cost ($)"
+                className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+              />
+              <input
+                type="text"
+                required
+                minLength={3}
+                value={adjForm.reason}
+                onChange={(e) => setAdjForm({ ...adjForm, reason: e.target.value })}
+                placeholder="Cycle count / shrinkage reason"
+                className="px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+              />
+              <button
+                type="submit"
+                disabled={submitting}
+                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold cursor-pointer disabled:opacity-60"
+              >
+                {submitting ? "Posting..." : "Post Adjustment"}
+              </button>
+            </form>
+          </div>
+
+          {/* SKU Ledger History */}
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-2">
+              <BookOpen size={17} className="text-blue-600" />
+              <h2 className="font-bold text-slate-900">SKU Journal History</h2>
+            </div>
+            {ledger.length === 0 ? (
+              <div className="p-6 text-sm text-slate-500">
+                No ledger entries recorded for this SKU yet.
+              </div>
             ) : (
-              <Package size={28} className="text-gray-400" />
+              <div className="divide-y divide-slate-100">
+                {ledger.map((entry) => (
+                  <div key={entry.id} className="p-5 space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-mono font-bold text-slate-900">
+                        {entry.entry_number} — {entry.entry_type}
+                      </span>
+                      <span className="text-slate-500">
+                        {new Date(entry.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                    {entry.reason && (
+                      <p className="text-xs text-slate-600">{entry.reason}</p>
+                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                      {entry.lines.map((line) => (
+                        <div
+                          key={line.id}
+                          className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs flex items-center justify-between"
+                        >
+                          <div>
+                            <span className="font-mono text-slate-800">{line.account_type}</span>
+                            <span className="block text-[11px] text-slate-500">
+                              {line.warehouse_name || "Offset Account"}
+                            </span>
+                          </div>
+                          <div className="text-right font-semibold">
+                            {line.debit_qty > 0 && (
+                              <span className="text-emerald-700">Dr {line.debit_qty}</span>
+                            )}
+                            {line.credit_qty > 0 && (
+                              <span className="text-rose-700">Cr {line.credit_qty}</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
-          <div className="flex-1">
-            <h2 className="text-lg font-bold text-gray-900">{product.name}</h2>
-            <p className="text-sm text-gray-500 mt-0.5">
-              Category: {product.category?.name || `#${product.category_id}`} · Price: $
-              {Number(product.price).toFixed(2)}
-            </p>
-            <span
-              className={`inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-full text-xs font-medium ${
-                currentStatus === "In Stock"
-                  ? "bg-emerald-50 text-emerald-700"
-                  : currentStatus === "Low Stock"
-                  ? "bg-amber-50 text-amber-700"
-                  : "bg-red-50 text-red-700"
-              }`}
-            >
-              <span
-                className={`w-1.5 h-1.5 rounded-full ${
-                  currentStatus === "In Stock"
-                    ? "bg-emerald-500"
-                    : currentStatus === "Low Stock"
-                    ? "bg-amber-500"
-                    : "bg-red-500"
-                }`}
-              />
-              {currentStatus}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Stock Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm text-center">
-          <p className="text-sm text-gray-500">Current Stock</p>
-          <p
-            className={`text-3xl font-bold mt-1 ${
-              stock === 0
-                ? "text-red-600"
-                : stock <= lowStockThreshold
-                ? "text-amber-600"
-                : "text-gray-900"
-            }`}
-          >
-            {stock}
-          </p>
-        </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm text-center">
-          <p className="text-sm text-gray-500">Low Stock Alert Threshold</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{lowStockThreshold}</p>
-        </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm text-center">
-          <p className="text-sm text-gray-500">Listing Status</p>
-          <p className="text-3xl font-bold text-[#7699F0] mt-1">
-            {product.is_active ? "Active" : "Hidden"}
-          </p>
-        </div>
-      </div>
-
-      {/* Stock Adjustment Form */}
-      <form
-        onSubmit={handleAdjust}
-        className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5"
-      >
-        <h2 className="font-semibold text-gray-900">Adjust Stock in Database</h2>
-
-        {/* Type Toggle */}
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => setAdjustType("add")}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border text-sm font-semibold transition ${
-              adjustType === "add"
-                ? "bg-emerald-50 border-emerald-300 text-emerald-700"
-                : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
-            }`}
-          >
-            <Plus size={16} /> Add Stock (Restock)
-          </button>
-          <button
-            type="button"
-            onClick={() => setAdjustType("remove")}
-            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border text-sm font-semibold transition ${
-              adjustType === "remove"
-                ? "bg-red-50 border-red-300 text-red-700"
-                : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
-            }`}
-          >
-            <Minus size={16} /> Remove Stock (Defect / Loss)
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Quantity <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={adjustAmount}
-              onChange={(e) => setAdjustAmount(e.target.value)}
-              placeholder="e.g. 20"
-              required
-              className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7699F0]"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Reason / Memo (Optional)
-            </label>
-            <input
-              type="text"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="e.g. Shipment delivered from warehouse"
-              className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7699F0]"
-            />
-          </div>
-        </div>
-
-        {adjustAmount && Number(adjustAmount) > 0 && (
-          <div className="p-3 bg-blue-50 border border-blue-100 rounded-xl text-xs text-blue-800">
-            Preview: Stock will change from <strong>{stock}</strong> to{" "}
-            <strong>
-              {adjustType === "add"
-                ? stock + Number(adjustAmount)
-                : Math.max(0, stock - Number(adjustAmount))}
-            </strong>{" "}
-            units in PostgreSQL.
-          </div>
-        )}
-
-        <div className="flex justify-end pt-2">
-          <button
-            type="submit"
-            disabled={saving || !adjustAmount}
-            className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-[#7699F0] rounded-xl hover:bg-blue-600 disabled:opacity-50 transition shadow-sm"
-          >
-            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-            {saving ? "Updating PostgreSQL..." : "Save Stock Adjustment"}
-          </button>
-        </div>
-      </form>
+        </>
+      ) : null}
     </div>
   );
 }

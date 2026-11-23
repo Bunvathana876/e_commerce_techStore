@@ -97,8 +97,6 @@ export default function SellerSidebar({
           title: "Orders",
           href: "/seller/orders",
           icon: <ShoppingCart size={18} />,
-          disabled: true,
-          badge: "Phase C",
         },
         {
           title: "Sales Analytics",

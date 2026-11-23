@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
   Clock,
+  Copy,
   ExternalLink,
   MapPin,
   Package,
@@ -19,7 +20,25 @@ import {
   X,
   XCircle,
 } from "lucide-react";
-import { ordersApi, type ApiOrder, type ApiProduct } from "@/lib/api";
+import {
+  ordersApi,
+  type ApiOrder,
+  type ApiOrderTracking,
+  type ApiProduct,
+} from "@/lib/api";
+
+function getSafeExternalUrl(raw?: string | null): string | null {
+  if (!raw || !raw.trim()) return null;
+  try {
+    const parsed = new URL(raw.trim());
+    if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+      return parsed.toString();
+    }
+  } catch {
+    // Ignore malformed tracking URL
+  }
+  return null;
+}
 import { isLoggedIn } from "@/lib/auth";
 import { getOrderPaymentPresentation } from "@/lib/checkout-security";
 import {
@@ -50,7 +69,11 @@ export default function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<ApiOrder | null>(null);
+  const [trackingData, setTrackingData] = useState<ApiOrderTracking | null>(null);
+  const [trackingLoading, setTrackingLoading] = useState(false);
+  const [trackingError, setTrackingError] = useState<string | null>(null);
   const [reorderingId, setReorderingId] = useState<number | null>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
 
   const authenticated = isLoggedIn();
 
@@ -98,26 +121,71 @@ export default function OrdersPage() {
     loadOrders();
   }, [loadOrders]);
 
-  // Escape key handler for details modal
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && selectedOrder) {
-        setSelectedOrder(null);
+  const fetchOrderTracking = useCallback(async (orderId: number) => {
+    setTrackingLoading(true);
+    setTrackingError(null);
+    setTrackingData(null);
+    try {
+      const res = await ordersApi.getTracking(orderId);
+      if (res.success && res.data) {
+        setTrackingData(res.data);
+      } else {
+        throw new Error(res.message || "Unable to retrieve shipment tracking.");
       }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [selectedOrder]);
+    } catch (err: unknown) {
+      setTrackingError(
+        err instanceof Error ? err.message : "Unable to load live shipment tracking."
+      );
+    } finally {
+      setTrackingLoading(false);
+    }
+  }, []);
 
-  // Lock body scroll when modal is open
   useEffect(() => {
-    if (!selectedOrder) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
-  }, [selectedOrder]);
+    const dialog = dialogRef.current;
+    if (!dialog || !selectedOrder) return;
+    if (!dialog.open) {
+      dialog.showModal();
+    }
+    void fetchOrderTracking(selectedOrder.id);
+
+    // Safari fallback for closedby="any" (pointerdown + pointerup outside bounding rect)
+    if (!("closedBy" in HTMLDialogElement.prototype)) {
+      let pressedOutside = false;
+      const isOutside = (e: PointerEvent) => {
+        const r = dialog.getBoundingClientRect();
+        return (
+          e.clientX < r.left ||
+          e.clientX > r.right ||
+          e.clientY < r.top ||
+          e.clientY > r.bottom
+        );
+      };
+      const onDown = (e: PointerEvent) => {
+        pressedOutside = isOutside(e);
+      };
+      const onUp = (e: PointerEvent) => {
+        if (pressedOutside && isOutside(e)) {
+          dialog.close();
+        }
+      };
+      dialog.addEventListener("pointerdown", onDown);
+      dialog.addEventListener("pointerup", onUp);
+      return () => {
+        dialog.removeEventListener("pointerdown", onDown);
+        dialog.removeEventListener("pointerup", onUp);
+      };
+    }
+  }, [selectedOrder, fetchOrderTracking]);
+
+  const closeOrderModal = () => {
+    const dialog = dialogRef.current;
+    if (dialog && dialog.open) {
+      dialog.close();
+    } else {
+      setSelectedOrder(null);
+    }
+  };
 
   // Compute status counts for filters
   const statusCounts = useMemo(() => {
@@ -621,13 +689,22 @@ export default function OrdersPage() {
                       <span className="truncate">{order.shipping_address}</span>
                     </p>
 
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedOrder(order)}
+                        className="px-4 py-2 rounded-xl border border-blue-200 bg-blue-50/70 hover:bg-blue-100 text-xs font-bold text-[#245BE7] inline-flex items-center gap-1.5 transition cursor-pointer active:scale-98"
+                      >
+                        <Truck size={13} aria-hidden="true" />
+                        Track Shipment
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => setSelectedOrder(order)}
                         className="px-4 py-2 rounded-xl border border-slate-200 hover:border-slate-300 bg-white text-xs font-bold text-slate-700 inline-flex items-center gap-1.5 transition cursor-pointer active:scale-98"
                       >
-                        <ExternalLink size={13} />
+                        <ExternalLink size={13} aria-hidden="true" />
                         View Details &amp; Receipt
                       </button>
 
@@ -637,7 +714,7 @@ export default function OrdersPage() {
                         disabled={reorderingId === order.id}
                         className="px-4 py-2 rounded-xl bg-[#181818] hover:bg-[#245BE7] disabled:opacity-50 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer active:scale-98"
                       >
-                        <ShoppingBag size={13} />
+                        <ShoppingBag size={13} aria-hidden="true" />
                         {reorderingId === order.id ? "Adding..." : "Buy Again"}
                       </button>
                     </div>
@@ -650,179 +727,333 @@ export default function OrdersPage() {
       </div>
 
       {/* ========================================== */}
-      {/* ORDER DETAILS & PRINTABLE RECEIPT MODAL */}
+      {/* ORDER DETAILS, TRACKING & RECEIPT DIALOG */}
       {/* ========================================== */}
       {selectedOrder && (
-        <div
-          role="dialog"
-          aria-modal="true"
+        <dialog
+          ref={dialogRef}
           aria-labelledby="order-details-title"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-xs animate-fadeIn"
+          onClose={() => {
+            if (dialogRef.current) dialogRef.current.returnValue = "";
+            setSelectedOrder(null);
+            setTrackingData(null);
+            setTrackingError(null);
+          }}
+          {...({ closedby: "any" } as Record<string, unknown>)}
+          className="m-auto w-full max-w-2xl bg-white rounded-[2.5rem] border border-slate-200 p-0 shadow-2xl overflow-hidden max-h-[90vh] open:flex flex-col"
         >
-          {/* Backdrop dismiss */}
-          <button
-            type="button"
-            aria-label="Close dialog"
-            onClick={() => setSelectedOrder(null)}
-            className="absolute inset-0 cursor-default"
-          />
+          {/* Modal Header */}
+          <div className="px-6 sm:px-8 py-5 border-b border-slate-100 flex items-center justify-between shrink-0">
+            <div>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-[#245BE7]">
+                Official Order &amp; Shipment Tracking
+              </span>
+              <h2
+                id="order-details-title"
+                className="text-lg font-semibold text-[#181818]"
+              >
+                Order #{selectedOrder.id}
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={closeOrderModal}
+              aria-label="Close details"
+              className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
+            >
+              <X size={18} aria-hidden="true" />
+            </button>
+          </div>
 
-          <div className="relative w-full max-w-2xl bg-white rounded-[2.5rem] border border-slate-200 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col z-10">
-            {/* Modal Header */}
-            <div className="px-6 sm:px-8 py-5 border-b border-slate-100 flex items-center justify-between">
-              <div>
-                <span className="text-[10px] font-semibold uppercase tracking-wider text-[#245BE7]">
-                  Official Purchase Receipt
-                </span>
+          {/* Modal Scrollable Body */}
+          <div id="printable-receipt" className="p-6 sm:p-8 overflow-y-auto space-y-6">
+            {/* Live Shipment Tracking Section */}
+            <section aria-labelledby="shipment-tracking-heading" className="p-5 rounded-2xl border border-blue-100 bg-blue-50/40 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3
-                  id="order-details-title"
-                  className="text-lg font-semibold text-[#181818]"
+                  id="shipment-tracking-heading"
+                  className="text-xs font-bold uppercase tracking-wider text-[#245BE7] flex items-center gap-1.5"
                 >
-                  Order #{selectedOrder.id}
+                  <Truck size={15} aria-hidden="true" />
+                  Shipment &amp; Carrier Tracking
                 </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSelectedOrder(null)}
-                aria-label="Close details"
-                className="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Modal Scrollable Body */}
-            <div className="p-6 sm:p-8 overflow-y-auto space-y-6">
-              {/* Receipt Metadata Box */}
-              <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 space-y-3 text-xs">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-semibold">Order Date</span>
-                  <span className="font-bold text-[#181818]">
-                    {new Date(selectedOrder.created_at).toLocaleString(undefined, {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    })}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-semibold">Order Status</span>
-                  <span className="font-bold text-[#245BE7]">
-                    {getOrderPaymentPresentation(selectedOrder).orderStatusLabel}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-semibold">Payment Method</span>
-                  <span className="font-bold text-[#181818]">
-                    {selectedOrder.payment_method}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-500 font-semibold">Payment Status</span>
-                  <span className="font-bold text-emerald-700">
-                    {getOrderPaymentPresentation(selectedOrder).paymentStatusLabel}
-                  </span>
-                </div>
-                <div className="flex justify-between items-start pt-1 border-t border-slate-200/80">
-                  <span className="text-slate-500 font-semibold">Delivery Address</span>
-                  <span className="font-bold text-[#181818] text-right max-w-xs leading-relaxed">
-                    {selectedOrder.shipping_address}
-                  </span>
-                </div>
-              </div>
-
-              {/* Items in this Order */}
-              <div className="space-y-3">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Itemized Hardware ({selectedOrder.items.length})
-                </h4>
-                <div className="space-y-2.5 divide-y divide-slate-100">
-                  {selectedOrder.items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="pt-2.5 first:pt-0 flex items-center justify-between text-xs"
-                    >
-                      <div>
-                        <p className="font-semibold text-[#181818]">{item.product_name}</p>
-                        <p className="text-[11px] text-slate-400">
-                          {item.quantity} × ${Number(item.price).toFixed(2)}
-                        </p>
-                      </div>
-                      <span className="font-mono font-bold text-[#181818]">
-                        ${Number(item.subtotal).toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Financial Calculation Breakdown */}
-              <div className="p-5 rounded-2xl bg-blue-50/40 border border-blue-100/60 space-y-2 text-xs text-slate-700">
-                <div className="flex justify-between">
-                  <span>Hardware Subtotal</span>
-                  <span className="font-mono font-bold">
-                    ${Number(selectedOrder.subtotal).toFixed(2)}
-                  </span>
-                </div>
-                {Number(selectedOrder.discount_amount) > 0 && (
-                  <div className="flex justify-between text-emerald-700 font-bold">
-                    <span>
-                      Promo Savings{" "}
-                      {selectedOrder.coupon_code ? `(${selectedOrder.coupon_code})` : ""}
-                    </span>
-                    <span className="font-mono">
-                      -${Number(selectedOrder.discount_amount).toFixed(2)}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span>Standard Courier Shipping</span>
-                  <span className="font-mono font-bold">
-                    {Number(selectedOrder.shipping_fee) === 0
-                      ? "FREE"
-                      : `$${Number(selectedOrder.shipping_fee).toFixed(2)}`}
-                  </span>
-                </div>
-                <div className="pt-2 border-t border-blue-200/80 flex justify-between items-center text-sm font-semibold text-[#181818]">
-                  <span>Total Amount</span>
-                  <span className="font-mono text-lg text-[#245BE7]">
-                    ${Number(selectedOrder.total).toFixed(2)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 text-[11px] text-slate-400">
-                <ShieldCheck size={14} className="text-emerald-600" />
-                Verified authentic order registered in Blue Panda backend.
-              </div>
-            </div>
-
-            {/* Modal Footer Actions */}
-            <div className="px-6 sm:px-8 py-4 border-t border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3">
-              <button
-                type="button"
-                onClick={handlePrintReceipt}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 inline-flex items-center gap-2 transition cursor-pointer"
-              >
-                <Printer size={14} />
-                Print Receipt
-              </button>
-
-              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    handleReorder(selectedOrder);
-                    setSelectedOrder(null);
-                  }}
-                  className="px-5 py-2.5 rounded-xl bg-[#245BE7] hover:bg-blue-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer"
+                  onClick={() => void fetchOrderTracking(selectedOrder.id)}
+                  disabled={trackingLoading}
+                  className="text-xs font-semibold text-slate-600 hover:text-[#245BE7] inline-flex items-center gap-1 disabled:opacity-50"
                 >
-                  <ShoppingBag size={14} />
-                  Reorder All
+                  <RefreshCw size={12} className={trackingLoading ? "animate-spin" : ""} aria-hidden="true" />
+                  Refresh
                 </button>
               </div>
+
+              {trackingLoading ? (
+                <div className="py-4 flex items-center gap-2.5 text-xs text-slate-500">
+                  <RefreshCw size={15} className="animate-spin text-[#245BE7]" aria-hidden="true" />
+                  Loading carrier details and fulfillment events…
+                </div>
+              ) : trackingError ? (
+                <div role="alert" className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-800 flex items-center justify-between gap-3">
+                  <span>{trackingError}</span>
+                  <button
+                    type="button"
+                    onClick={() => void fetchOrderTracking(selectedOrder.id)}
+                    className="px-3 py-1 rounded-lg bg-white border border-rose-200 font-semibold text-rose-700 hover:bg-rose-100 shrink-0"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : trackingData ? (
+                <div className="space-y-4 text-xs">
+                  {trackingData.shipment ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-4 rounded-xl bg-white border border-slate-100">
+                      <div>
+                        <span className="text-slate-400 block">Carrier</span>
+                        <span className="font-bold text-[#181818]">
+                          {trackingData.shipment.carrier}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Shipment Status</span>
+                        <span className="font-bold text-[#245BE7] capitalize">
+                          {trackingData.shipment.status.replace(/_/g, " ")}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Tracking Number</span>
+                        {trackingData.shipment.tracking_number ? (
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="font-mono font-bold text-[#181818]">
+                              {trackingData.shipment.tracking_number}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label="Copy tracking number"
+                              onClick={() => {
+                                void navigator.clipboard?.writeText(
+                                  trackingData.shipment!.tracking_number!
+                                );
+                                pushToast({
+                                  title: "Copied",
+                                  description: "Tracking number copied to clipboard.",
+                                  tone: "info",
+                                });
+                              }}
+                              className="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-[#245BE7]"
+                            >
+                              <Copy size={13} aria-hidden="true" />
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="font-semibold text-slate-500">Pending assignment</span>
+                        )}
+                      </div>
+                      <div>
+                        <span className="text-slate-400 block">Estimated Delivery</span>
+                        <span className="font-bold text-[#181818]">
+                          {trackingData.shipment.estimated_delivery_at
+                            ? new Date(
+                                trackingData.shipment.estimated_delivery_at
+                              ).toLocaleDateString(undefined, {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })
+                            : "Awaiting schedule"}
+                        </span>
+                      </div>
+                      {trackingData.shipment.notes && (
+                        <div className="sm:col-span-2 pt-2 border-t border-slate-100 text-slate-600">
+                          {trackingData.shipment.notes}
+                        </div>
+                      )}
+                      {getSafeExternalUrl(trackingData.shipment.tracking_url) && (
+                        <div className="sm:col-span-2">
+                          <a
+                            href={getSafeExternalUrl(trackingData.shipment.tracking_url)!}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 font-bold text-[#245BE7] hover:underline"
+                          >
+                            Track on Carrier Portal
+                            <ExternalLink size={12} aria-hidden="true" />
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-slate-600 bg-white p-3.5 rounded-xl border border-slate-100">
+                      Carrier and tracking number will appear here once the warehouse dispatches your package.
+                    </p>
+                  )}
+
+                  {trackingData.events.length > 0 && (
+                    <ol className="space-y-3 border-l-2 border-blue-200 pl-4 ml-1">
+                      {trackingData.events.map((ev, idx) => (
+                        <li key={ev.id ?? `${ev.status}-${idx}`} className="relative">
+                          <span
+                            aria-hidden="true"
+                            className={`absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full ${
+                              idx === 0 ? "bg-[#245BE7]" : "bg-slate-300"
+                            }`}
+                          />
+                          <p className="font-bold text-[#181818]">{ev.title}</p>
+                          {ev.description && (
+                            <p className="text-slate-600 mt-0.5">{ev.description}</p>
+                          )}
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            {new Date(ev.occurred_at).toLocaleString(undefined, {
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            })}
+                            {ev.location ? ` • ${ev.location}` : ""}
+                          </p>
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </div>
+              ) : null}
+            </section>
+
+            {/* Receipt Metadata Box */}
+            <div className="p-5 rounded-2xl bg-slate-50 border border-slate-100 space-y-3 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-semibold">Order Date</span>
+                <span className="font-bold text-[#181818]">
+                  {new Date(selectedOrder.created_at).toLocaleString(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-semibold">Order Status</span>
+                <span className="font-bold text-[#245BE7]">
+                  {getOrderPaymentPresentation(selectedOrder).orderStatusLabel}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-semibold">Payment Method</span>
+                <span className="font-bold text-[#181818]">
+                  {selectedOrder.payment_method}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-semibold">Payment Status</span>
+                <span className="font-bold text-emerald-700">
+                  {getOrderPaymentPresentation(selectedOrder).paymentStatusLabel}
+                </span>
+              </div>
+              <div className="flex justify-between items-start pt-1 border-t border-slate-200/80">
+                <span className="text-slate-500 font-semibold">Delivery Address</span>
+                <span className="font-bold text-[#181818] text-right max-w-xs leading-relaxed">
+                  {selectedOrder.shipping_address}
+                </span>
+              </div>
+            </div>
+
+            {/* Items in this Order */}
+            <div className="space-y-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Itemized Hardware ({selectedOrder.items.length})
+              </h3>
+              <div className="space-y-2.5 divide-y divide-slate-100">
+                {selectedOrder.items.map((item) => (
+                  <div
+                    key={item.id}
+                    className="pt-2.5 first:pt-0 flex items-center justify-between text-xs"
+                  >
+                    <div>
+                      <p className="font-semibold text-[#181818]">{item.product_name}</p>
+                      <p className="text-[11px] text-slate-400">
+                        {item.quantity} × ${Number(item.price).toFixed(2)}
+                      </p>
+                    </div>
+                    <span className="font-mono font-bold text-[#181818]">
+                      ${Number(item.subtotal).toFixed(2)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Financial Calculation Breakdown */}
+            <div className="p-5 rounded-2xl bg-blue-50/40 border border-blue-100/60 space-y-2 text-xs text-slate-700">
+              <div className="flex justify-between">
+                <span>Hardware Subtotal</span>
+                <span className="font-mono font-bold">
+                  ${Number(selectedOrder.subtotal).toFixed(2)}
+                </span>
+              </div>
+              {Number(selectedOrder.discount_amount) > 0 && (
+                <div className="flex justify-between text-emerald-700 font-bold">
+                  <span>
+                    Promo Savings{" "}
+                    {selectedOrder.coupon_code ? `(${selectedOrder.coupon_code})` : ""}
+                  </span>
+                  <span className="font-mono">
+                    -${Number(selectedOrder.discount_amount).toFixed(2)}
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span>Standard Courier Shipping</span>
+                <span className="font-mono font-bold">
+                  {Number(selectedOrder.shipping_fee) === 0
+                    ? "FREE"
+                    : `$${Number(selectedOrder.shipping_fee).toFixed(2)}`}
+                </span>
+              </div>
+              <div className="pt-2 border-t border-blue-200/80 flex justify-between items-center text-sm font-semibold text-[#181818]">
+                <span>Total Amount</span>
+                <span className="font-mono text-lg text-[#245BE7]">
+                  ${Number(selectedOrder.total).toFixed(2)}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-[11px] text-slate-400">
+              <ShieldCheck size={14} className="text-emerald-600" aria-hidden="true" />
+              Verified authentic order registered in Blue Panda backend.
             </div>
           </div>
-        </div>
+
+          {/* Modal Footer Actions */}
+          <div className="px-6 sm:px-8 py-4 border-t border-slate-100 bg-slate-50/50 flex flex-wrap items-center justify-between gap-3 shrink-0">
+            <button
+              type="button"
+              onClick={handlePrintReceipt}
+              className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 inline-flex items-center gap-2 transition cursor-pointer"
+            >
+              <Printer size={14} aria-hidden="true" />
+              Print Receipt
+            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={closeOrderModal}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-xs font-semibold text-slate-700 transition cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = selectedOrder;
+                  closeOrderModal();
+                  void handleReorder(target);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-[#245BE7] hover:bg-blue-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <ShoppingBag size={14} aria-hidden="true" />
+                Reorder All
+              </button>
+            </div>
+          </div>
+        </dialog>
       )}
     </div>
   );

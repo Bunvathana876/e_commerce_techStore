@@ -71,8 +71,32 @@ class ProductCard extends StatelessWidget {
                   ),
                 ),
 
-                // Discount Badge (Top Left)
-                if (product.discountPercent > 0)
+                // Stock / Discount Badge (Top Left)
+                if (product.isOutOfStock)
+                  Positioned(
+                    top: 6,
+                    left: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0F172A).withValues(alpha: 0.86),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'OUT OF STOCK',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ),
+                  )
+                else if (product.discountPercent > 0)
                   Positioned(
                     top: 6,
                     left: 6,
@@ -105,6 +129,30 @@ class ProductCard extends StatelessWidget {
                           fontSize: 9.5,
                           fontWeight: FontWeight.w800,
                           letterSpacing: -0.2,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                if (!product.isOutOfStock && product.isLowStock)
+                  Positioned(
+                    bottom: 6,
+                    left: 6,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.92),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        '${product.stock} left',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),

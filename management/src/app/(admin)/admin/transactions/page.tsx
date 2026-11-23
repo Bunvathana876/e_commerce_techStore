@@ -1,321 +1,289 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useEffect, useState, useCallback } from "react";
 import {
-  Search,
-  Eye,
-  ArrowLeftRight,
-  ChevronLeft,
-  ChevronRight,
-  TrendingUp,
-  DollarSign,
+  AlertCircle,
   ArrowDownLeft,
-  Loader2,
+  ArrowUpRight,
+  Download,
+  RefreshCw,
+  Search,
 } from "lucide-react";
-import { ordersApi, ApiOrder } from "@/lib/api";
+import {
+  paymentsApi,
+  refundsApi,
+  reportsApi,
+  type ApiPaymentTransaction,
+  type ApiRefund,
+} from "@/lib/api";
 
-const typeFilters = ["All", "Payment", "Refund"];
-const statusFilters = ["All", "Completed", "Pending", "Failed"];
+interface FinancialTransactionRow {
+  ref: string;
+  direction: "inflow" | "outflow";
+  category: "Payment" | "Refund";
+  orderId: number;
+  party: string;
+  method: string;
+  amount: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+}
 
 export default function TransactionsPage() {
-  const [orders, setOrders] = useState<ApiOrder[]>([]);
+  const [payments, setPayments] = useState<ApiPaymentTransaction[]>([]);
+  const [refunds, setRefunds] = useState<ApiRefund[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<"all" | "Payment" | "Refund">("all");
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [exporting, setExporting] = useState(false);
 
-  const fetchTransactions = useCallback(async () => {
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
     try {
-      setLoading(true);
-      const res = await ordersApi.listAll();
-      if (res.success && res.data) {
-        setOrders(res.data);
-      }
+      const [payRes, refRes] = await Promise.all([
+        paymentsApi.getAll(),
+        refundsApi.getAll(),
+      ]);
+      setPayments(payRes.data || []);
+      setRefunds(refRes.data || []);
     } catch (err) {
-      console.error("Failed to load orders for transactions:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to load transaction ledger."
+      );
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchTransactions();
-  }, [fetchTransactions]);
+    void loadData();
+  }, [loadData]);
 
-  const transactions = orders.map((order) => {
-    const isPaid = order.payment_status === "paid" || order.status === "delivered" || order.status === "shipped";
-    const isFailed = order.status === "cancelled" || order.payment_status === "failed";
-    const status = isPaid ? "Completed" : isFailed ? "Failed" : "Pending";
-    const amount = Number(order.total ?? 0);
-    const dateObj = order.created_at ? new Date(order.created_at) : new Date();
+  const rows = useMemo<FinancialTransactionRow[]>(() => {
+    const mappedPayments: FinancialTransactionRow[] = payments.map((p) => ({
+      ref: p.transaction_ref,
+      direction: "inflow",
+      category: "Payment",
+      orderId: p.order_id,
+      party: p.customer_name || p.customer_email || `Order #${p.order_id}`,
+      method: p.payment_method,
+      amount: Number(p.amount || 0),
+      currency: p.currency || "USD",
+      status: p.status,
+      createdAt: p.created_at,
+    }));
 
-    return {
-      id: `TXN-${order.id.toString().padStart(4, "0")}`,
-      rawId: order.id,
-      type: "Payment",
-      description: `Order #${order.id} payment (${order.payment_method || "ABA Bank"})`,
-      reference: `ORD-${order.id}`,
-      amount: amount,
-      direction: "in",
-      status: status,
-      date: dateObj.toLocaleDateString(),
-      time: dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    };
-  });
+    const mappedRefunds: FinancialTransactionRow[] = refunds.map((r) => ({
+      ref: r.refund_number,
+      direction: "outflow",
+      category: "Refund",
+      orderId: r.order_id,
+      party: r.customer_name || r.customer_email || `Order #${r.order_id}`,
+      method: r.refund_method,
+      amount: Number(r.amount || 0),
+      currency: r.currency || "USD",
+      status: r.status,
+      createdAt: r.created_at,
+    }));
 
-  const filtered = transactions.filter((t) => {
-    const matchSearch =
-      t.id.toLowerCase().includes(search.toLowerCase()) ||
-      t.description.toLowerCase().includes(search.toLowerCase()) ||
-      t.reference.toLowerCase().includes(search.toLowerCase());
-    const matchType = typeFilter === "All" || t.type === typeFilter;
-    const matchStatus = statusFilter === "All" || t.status === statusFilter;
-    return matchSearch && matchType && matchStatus;
-  });
+    const needle = search.trim().toLowerCase();
+    return [...mappedPayments, ...mappedRefunds]
+      .filter((row) => {
+        if (typeFilter !== "all" && row.category !== typeFilter) return false;
+        if (!needle) return true;
+        return (
+          row.ref.toLowerCase().includes(needle) ||
+          row.party.toLowerCase().includes(needle) ||
+          row.method.toLowerCase().includes(needle) ||
+          String(row.orderId).includes(needle)
+        );
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+  }, [payments, refunds, search, typeFilter]);
 
-  const totalIn = transactions
-    .filter((t) => t.status === "Completed")
-    .reduce((sum, t) => sum + t.amount, 0);
-
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case "Completed":
-        return "bg-emerald-50 text-emerald-700";
-      case "Pending":
-        return "bg-amber-50 text-amber-700";
-      case "Failed":
-        return "bg-red-50 text-red-700";
-      default:
-        return "bg-gray-100 text-gray-600";
-    }
-  };
-
-  const getStatusDot = (status: string) => {
-    switch (status) {
-      case "Completed":
-        return "bg-emerald-500";
-      case "Pending":
-        return "bg-amber-500";
-      case "Failed":
-        return "bg-red-500";
-      default:
-        return "bg-gray-400";
+  const handleExportRefundLedger = async () => {
+    setExporting(true);
+    try {
+      const csv = await reportsApi.downloadLedgerCsv("refunds");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "refund-accounting-ledger.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "CSV export failed.");
+    } finally {
+      setExporting(false);
     }
   };
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Transactions</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Live financial records from orders in PostgreSQL database
-        </p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-emerald-50 flex items-center justify-center">
-              <TrendingUp className="text-emerald-600" size={20} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Completed Transactions Revenue</p>
-              <p className="text-xl font-bold text-emerald-600">
-                +${totalIn.toFixed(2)}
-              </p>
-            </div>
-          </div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900">Financial Transactions</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Unified view of Card/COD/POS payment captures and accounting refund entries
+          </p>
         </div>
-
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center">
-              <DollarSign className="text-[#7699F0]" size={20} />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Total Recorded Orders</p>
-              <p className="text-xl font-bold text-gray-900">
-                {transactions.length}
-              </p>
-            </div>
-          </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={exporting}
+            onClick={() => void handleExportRefundLedger()}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+          >
+            <Download size={15} />
+            {exporting ? "Exporting..." : "Export Refund Ledger CSV"}
+          </button>
+          <button
+            type="button"
+            onClick={() => void loadData()}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-800 transition cursor-pointer"
+          >
+            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
         </div>
       </div>
 
-      {/* Search + Filters */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-4">
-        <div className="relative">
-          <Search
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
-            size={18}
-          />
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3.5 top-3 text-slate-400" />
           <input
             type="text"
-            placeholder="Search by ID, description, or reference..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-11 pr-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7699F0] transition"
+            placeholder="Search reference, order ID, customer, or method..."
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:bg-white"
           />
         </div>
-
-        <div className="flex flex-wrap gap-4">
-          <div className="flex flex-wrap gap-2">
-            <span className="text-xs text-gray-400 self-center mr-1">Type:</span>
-            {typeFilters.map((type) => (
-              <button
-                key={type}
-                onClick={() => setTypeFilter(type)}
-                className={`px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                  typeFilter === type
-                    ? "bg-[#7699F0] text-white shadow-sm"
-                    : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <span className="text-xs text-gray-400 self-center mr-1">Status:</span>
-            {statusFilters.map((status) => (
-              <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={`px-3.5 py-1.5 text-xs font-medium rounded-lg transition-all ${
-                  statusFilter === status
-                    ? "bg-[#7699F0] text-white shadow-sm"
-                    : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                }`}
-              >
-                {status}
-              </button>
-            ))}
-          </div>
+        <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+          {(["all", "Payment", "Refund"] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setTypeFilter(tab)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                typeFilter === tab
+                  ? "bg-white text-slate-900 shadow-xs"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              {tab === "all" ? "All" : `${tab}s`}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Transactions Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <AlertCircle size={16} />
+            {error}
+          </span>
+          <button
+            type="button"
+            onClick={() => void loadData()}
+            className="text-xs font-semibold underline cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         {loading ? (
-          <div className="py-20 flex flex-col items-center justify-center text-gray-400">
-            <Loader2 className="animate-spin text-[#7699F0] mb-2" size={32} />
-            <p className="text-sm">Loading transactions from database...</p>
+          <div className="p-8 text-center text-sm text-slate-500">
+            Loading financial transactions...
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="p-10 text-center text-sm text-slate-500">
+            No transactions recorded yet.
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-gray-500 bg-gray-50/70">
-                  <th className="font-medium px-6 py-4">Transaction</th>
-                  <th className="font-medium px-6 py-4">Type</th>
-                  <th className="font-medium px-6 py-4">Reference</th>
-                  <th className="font-medium px-6 py-4">Amount</th>
-                  <th className="font-medium px-6 py-4">Status</th>
-                  <th className="font-medium px-6 py-4">Date</th>
-                  <th className="font-medium px-6 py-4 text-right">Action</th>
+            <table className="w-full text-sm text-left">
+              <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase">
+                <tr>
+                  <th className="px-5 py-3.5">Reference</th>
+                  <th className="px-5 py-3.5">Type</th>
+                  <th className="px-5 py-3.5">Order</th>
+                  <th className="px-5 py-3.5">Party</th>
+                  <th className="px-5 py-3.5">Method</th>
+                  <th className="px-5 py-3.5 text-right">Amount</th>
+                  <th className="px-5 py-3.5">Status</th>
+                  <th className="px-5 py-3.5">Timestamp</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filtered.map((txn) => (
-                  <tr
-                    key={txn.id}
-                    className="hover:bg-gray-50/60 transition-colors"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 bg-emerald-50">
-                          <ArrowDownLeft
-                            size={16}
-                            className="text-emerald-600"
-                          />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{txn.id}</p>
-                          <p className="text-xs text-gray-400 truncate max-w-[200px]">
-                            {txn.description}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex px-2.5 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
-                        {txn.type}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-gray-600 font-mono text-xs">
-                        {txn.reference}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="font-semibold text-emerald-600">
-                        +${txn.amount.toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${getStatusStyle(
-                          txn.status
-                        )}`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${getStatusDot(
-                            txn.status
-                          )}`}
-                        />
-                        {txn.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="text-gray-700">{txn.date}</p>
-                      <p className="text-xs text-gray-400">{txn.time}</p>
-                    </td>
-                    <td className="px-6 py-4 text-right">
+              <tbody className="divide-y divide-slate-100">
+                {rows.map((row) => (
+                  <tr key={row.ref} className="hover:bg-slate-50/70 transition">
+                    <td className="px-5 py-3.5 font-mono text-xs font-semibold">
                       <Link
-                        href={`/admin/orders`}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-[#7699F0] bg-blue-50 rounded-lg hover:bg-blue-100 transition"
+                        href={`/admin/transactions/${encodeURIComponent(row.ref)}`}
+                        className="text-blue-600 hover:underline"
                       >
-                        <Eye size={15} />
-                        View Order
+                        {row.ref}
                       </Link>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span
+                        className={`inline-flex items-center gap-1 text-xs font-semibold ${
+                          row.direction === "inflow"
+                            ? "text-emerald-700"
+                            : "text-rose-700"
+                        }`}
+                      >
+                        {row.direction === "inflow" ? (
+                          <ArrowDownLeft size={13} />
+                        ) : (
+                          <ArrowUpRight size={13} />
+                        )}
+                        {row.category}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <Link
+                        href={`/admin/orders/${row.orderId}`}
+                        className="text-slate-700 hover:text-blue-600 font-medium"
+                      >
+                        #{row.orderId}
+                      </Link>
+                    </td>
+                    <td className="px-5 py-3.5 text-slate-700">{row.party}</td>
+                    <td className="px-5 py-3.5 text-slate-600">{row.method}</td>
+                    <td
+                      className={`px-5 py-3.5 text-right font-semibold ${
+                        row.direction === "inflow"
+                          ? "text-emerald-700"
+                          : "text-rose-700"
+                      }`}
+                    >
+                      {row.direction === "inflow" ? "+" : "-"}$
+                      {row.amount.toFixed(2)} {row.currency}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 capitalize">
+                        {row.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-xs text-slate-500 whitespace-nowrap">
+                      {new Date(row.createdAt).toLocaleString()}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        )}
-
-        {!loading && filtered.length === 0 && (
-          <div className="py-20 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-gray-50 flex items-center justify-center mx-auto mb-4">
-              <ArrowLeftRight className="text-gray-300" size={32} />
-            </div>
-            <p className="text-gray-600 font-medium">No transactions found</p>
-            <p className="text-sm text-gray-400 mt-1">
-              Try changing your search or filters
-            </p>
-          </div>
-        )}
-
-        {!loading && filtered.length > 0 && (
-          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-100">
-            <p className="text-sm text-gray-500">
-              Showing <span className="font-medium">1–{filtered.length}</span> of{" "}
-              <span className="font-medium">{filtered.length}</span>
-            </p>
-            <div className="flex items-center gap-2">
-              <button className="p-2 rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50">
-                <ChevronLeft size={16} />
-              </button>
-              <button className="p-2 rounded-lg border border-gray-200 text-gray-400 hover:bg-gray-50">
-                <ChevronRight size={16} />
-              </button>
-            </div>
           </div>
         )}
       </div>

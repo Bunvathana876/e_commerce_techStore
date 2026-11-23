@@ -233,7 +233,7 @@ export default function RefundDetailPage() {
           </div>
           <div className="text-sm space-y-1">
             <p className="font-mono text-gray-900">#{order.id}</p>
-            <p className="text-gray-500">Method: {order.payment_method || "ABA Bank"}</p>
+            <p className="text-gray-500">Method: {order.payment_method || "Cash on Delivery"}</p>
             <p className="text-gray-500">
               Delivery: {order.shipping_address || "Standard shipping"}
             </p>

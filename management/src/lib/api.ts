@@ -83,6 +83,10 @@ export interface ApiCoupon {
   min_order_amount: number;
   max_discount_amount?: number | null;
   is_active: boolean;
+  expires_at?: string | null;
+  usage_limit?: number | null;
+  per_user_limit?: number | null;
+  used_count?: number;
 }
 
 export interface DashboardStats {
@@ -109,6 +113,39 @@ export interface ApiOrderItem {
   created_at: string;
 }
 
+export interface ApiOrderShipment {
+  id: number;
+  order_id: number;
+  carrier: string;
+  tracking_number?: string | null;
+  tracking_url?: string | null;
+  status: string;
+  estimated_delivery_at?: string | null;
+  shipped_at?: string | null;
+  delivered_at?: string | null;
+  notes?: string | null;
+  updated_at: string;
+}
+
+export interface ApiOrderTrackingEvent {
+  id?: number | null;
+  status: string;
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  occurred_at: string;
+}
+
+export interface ApiOrderTracking {
+  order_id: number;
+  order_status: string;
+  payment_status: string;
+  shipping_address: string;
+  has_shipment_record: boolean;
+  shipment?: ApiOrderShipment | null;
+  events: ApiOrderTrackingEvent[];
+}
+
 export interface ApiOrder {
   id: number;
   user_id: number;
@@ -125,6 +162,49 @@ export interface ApiOrder {
   created_at: string;
   updated_at: string;
   items: ApiOrderItem[];
+  shipment?: ApiOrderShipment | null;
+}
+
+export interface ApiSellerOrder extends ApiOrder {
+  seller_items: ApiOrderItem[];
+  seller_subtotal: number | string;
+  can_update_status: boolean;
+}
+
+export interface ApiSellerOrderPagination {
+  items: ApiSellerOrder[];
+  total: number;
+  page: number;
+  limit: number;
+  total_pages: number;
+}
+
+export interface ApiSellerDashboardLowStockProduct {
+  id: number;
+  name: string;
+  price: number | string;
+  stock: number;
+  is_active: boolean;
+}
+
+export interface ApiSellerDashboard {
+  seller_id: number;
+  store_name: string;
+  store_status: string;
+  rating: number | string;
+  total_products: number;
+  active_products: number;
+  low_stock_products_count: number;
+  out_of_stock_products_count: number;
+  total_orders: number;
+  pending_orders: number;
+  processing_orders: number;
+  shipped_orders: number;
+  delivered_orders: number;
+  cancelled_orders: number;
+  gross_revenue: number | string;
+  recent_orders: ApiSellerOrder[];
+  low_stock_items: ApiSellerDashboardLowStockProduct[];
 }
 
 export interface ApiReview {
@@ -251,6 +331,34 @@ export const authApi = {
     });
     if (response.success && epoch === getSessionEpoch()) logout("password_changed");
     return response;
+  },
+
+  forgotPassword: async (
+    email: string
+  ): Promise<ApiResponse<{ reset_url?: string } | null>> => {
+    return request<ApiResponse<{ reset_url?: string } | null>>("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email, client: "management" }),
+    });
+  },
+
+  validateResetToken: async (
+    token: string
+  ): Promise<ApiResponse<{ valid: boolean }>> => {
+    return request<ApiResponse<{ valid: boolean }>>("/auth/reset-password/validate", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    });
+  },
+
+  resetPassword: async (data: {
+    token: string;
+    new_password: string;
+  }): Promise<ApiResponse<null>> => {
+    return request<ApiResponse<null>>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
   },
 };
 
@@ -408,7 +516,7 @@ export const ordersApi = {
 
   updateStatus: async (
     id: number,
-    data: { status?: string; payment_status?: string }
+    data: { status?: string; payment_status?: string; reason?: string }
   ): Promise<ApiResponse<ApiOrder>> => {
     return request<ApiResponse<ApiOrder>>(`/orders/${id}/status`, {
       method: "PUT",
@@ -425,6 +533,30 @@ export const ordersApi = {
       method: "DELETE",
     });
   },
+
+  getTracking: async (id: number): Promise<ApiResponse<ApiOrderTracking>> => {
+    return request<ApiResponse<ApiOrderTracking>>(`/orders/${id}/tracking`);
+  },
+
+  updateTracking: async (
+    id: number,
+    data: {
+      carrier: string;
+      tracking_number?: string | null;
+      tracking_url?: string | null;
+      status: string;
+      estimated_delivery_at?: string | null;
+      event_title?: string | null;
+      event_description?: string | null;
+      location?: string | null;
+      notes?: string | null;
+    }
+  ): Promise<ApiResponse<ApiOrderTracking>> => {
+    return request<ApiResponse<ApiOrderTracking>>(`/orders/${id}/tracking`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
 };
 
 export interface ApiCouponValidation {
@@ -435,6 +567,31 @@ export interface ApiCouponValidation {
   discount_amount: number | string;
   new_subtotal: number | string;
   message: string;
+}
+
+export interface CouponCreatePayload {
+  code: string;
+  description?: string | null;
+  discount_type: "percent" | "fixed";
+  discount_value: number;
+  min_order_amount?: number;
+  max_discount_amount?: number | null;
+  is_active?: boolean;
+  expires_at?: string | null;
+  usage_limit?: number | null;
+  per_user_limit?: number | null;
+}
+
+export interface CouponUpdatePayload {
+  description?: string | null;
+  discount_type?: "percent" | "fixed";
+  discount_value?: number;
+  min_order_amount?: number;
+  max_discount_amount?: number | null;
+  is_active?: boolean;
+  expires_at?: string | null;
+  usage_limit?: number | null;
+  per_user_limit?: number | null;
 }
 
 export const couponsApi = {
@@ -449,6 +606,33 @@ export const couponsApi = {
     return request<ApiResponse<ApiCouponValidation>>("/coupons/validate", {
       method: "POST",
       body: JSON.stringify(data),
+    });
+  },
+
+  list: async (): Promise<ApiResponse<ApiCoupon[]>> => {
+    return request<ApiResponse<ApiCoupon[]>>("/coupons");
+  },
+
+  create: async (data: CouponCreatePayload): Promise<ApiResponse<ApiCoupon>> => {
+    return request<ApiResponse<ApiCoupon>>("/coupons", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  update: async (
+    id: number,
+    data: CouponUpdatePayload
+  ): Promise<ApiResponse<ApiCoupon>> => {
+    return request<ApiResponse<ApiCoupon>>(`/coupons/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete: async (id: number): Promise<ApiResponse<null>> => {
+    return request<ApiResponse<null>>(`/coupons/${id}`, {
+      method: "DELETE",
     });
   },
 };
@@ -812,6 +996,153 @@ export const sellerProductsApi = {
 };
 
 // ==========================================
+// Seller Dashboard & Fulfillment Orders API
+// ==========================================
+export const sellerApi = {
+  getDashboard: async (): Promise<ApiResponse<ApiSellerDashboard>> => {
+    return request<ApiResponse<ApiSellerDashboard>>("/seller/dashboard");
+  },
+
+  getOrders: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+  }): Promise<ApiResponse<ApiSellerOrderPagination>> => {
+    const query = new URLSearchParams();
+    if (params?.page) query.append("page", String(params.page));
+    if (params?.limit) query.append("limit", String(params.limit));
+    if (params?.status && params.status !== "all") query.append("status", params.status);
+    if (params?.search) query.append("search", params.search);
+    const qs = query.toString() ? `?${query.toString()}` : "";
+    return request<ApiResponse<ApiSellerOrderPagination>>(`/seller/orders${qs}`);
+  },
+
+  updateOrderStatus: async (
+    orderId: number,
+    data: { status: string; reason?: string }
+  ): Promise<ApiResponse<ApiOrder>> => {
+    return ordersApi.updateStatus(orderId, data);
+  },
+
+  updateOrderTracking: async (
+    orderId: number,
+    data: {
+      carrier: string;
+      tracking_number?: string | null;
+      tracking_url?: string | null;
+      status: string;
+      estimated_delivery_at?: string | null;
+      event_title?: string | null;
+      event_description?: string | null;
+      location?: string | null;
+      notes?: string | null;
+    }
+  ): Promise<ApiResponse<ApiOrderTracking>> => {
+    return ordersApi.updateTracking(orderId, data);
+  },
+};
+
+// ==========================================
+// Store Settings & RBAC Roles API
+// ==========================================
+export interface ApiStoreSettings {
+  id: number;
+  key: string;
+  store_name: string;
+  store_email: string;
+  store_phone?: string | null;
+  store_address?: string | null;
+  store_logo_url?: string | null;
+  currency: string;
+  language: string;
+  timezone: string;
+  theme: string;
+  primary_color: string;
+  sidebar_style: string;
+  free_shipping_min: number | string;
+  standard_shipping_fee: number | string;
+  express_shipping_fee: number | string;
+  estimated_delivery_days: string;
+  enable_card_payment: boolean;
+  enable_cod_payment: boolean;
+  notify_new_order: boolean;
+  notify_low_stock: boolean;
+  notify_customer_message: boolean;
+  notify_weekly_report: boolean;
+  updated_at: string;
+}
+
+export interface ApiInfrastructureStatus {
+  database_dialect: string;
+  database_connected: boolean;
+  table_count: number;
+  table_names: string[];
+  upload_storage_backend: string;
+  email_provider: string;
+  card_gateway_configured: boolean;
+}
+
+export interface ApiAdminSettingsBundle {
+  settings: ApiStoreSettings;
+  infrastructure: ApiInfrastructureStatus;
+}
+
+export interface ApiStoreSettingsUpdate {
+  store_name: string;
+  store_email: string;
+  store_phone?: string | null;
+  store_address?: string | null;
+  store_logo_url?: string | null;
+  currency: string;
+  language: string;
+  timezone: string;
+  theme: string;
+  primary_color: string;
+  sidebar_style: string;
+  free_shipping_min: number;
+  standard_shipping_fee: number;
+  express_shipping_fee: number;
+  estimated_delivery_days: string;
+  enable_card_payment: boolean;
+  enable_cod_payment: boolean;
+  notify_new_order: boolean;
+  notify_low_stock: boolean;
+  notify_customer_message: boolean;
+  notify_weekly_report: boolean;
+}
+
+export interface ApiRoleDefinition {
+  id: string;
+  name: string;
+  description: string;
+  is_system: boolean;
+  permissions_count: number;
+  permission_groups: Array<{ module: string; permissions: string[] }>;
+  users_count: number;
+  users: Array<{ id: number; name: string; email: string; is_active: boolean }>;
+}
+
+export const settingsApi = {
+  get: async (): Promise<ApiResponse<ApiAdminSettingsBundle>> => {
+    return request<ApiResponse<ApiAdminSettingsBundle>>("/settings");
+  },
+
+  update: async (
+    data: ApiStoreSettingsUpdate
+  ): Promise<ApiResponse<ApiAdminSettingsBundle>> => {
+    return request<ApiResponse<ApiAdminSettingsBundle>>("/settings", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  getRoles: async (): Promise<ApiResponse<ApiRoleDefinition[]>> => {
+    return request<ApiResponse<ApiRoleDefinition[]>>("/settings/roles");
+  },
+};
+
+// ==========================================
 // Dashboard Statistics API
 // ==========================================
 export const statsApi = {
@@ -824,7 +1155,7 @@ export const statsApi = {
 // Media & File Upload API
 // ==========================================
 export const uploadApi = {
-  uploadImage: async (file: File): Promise<ApiResponse<{ filename: string; url: string; relative_url: string }>> => {
+  uploadImage: async (file: File): Promise<ApiResponse<{ filename: string; url: string; relative_url: string; storage_backend?: string }>> => {
     const formData = new FormData();
     formData.append("file", file);
 
@@ -1023,6 +1354,726 @@ export const posApi = {
     return request<ApiResponse<Array<{ id: number; name: string; email: string; phone?: string }>>>(
       `/pos/customers?q=${encodeURIComponent(q)}`
     );
+  },
+};
+
+// ==========================================
+// DIGITAL PAYMENTS (CARD & COD ONLY)
+// ==========================================
+
+export interface ApiPaymentConfig {
+  supported_methods: string[];
+  card_gateway_configured: boolean;
+  card_provider: string;
+  stripe_publishable_key?: string | null;
+  currency: string;
+}
+
+export interface ApiPaymentTransaction {
+  id: number;
+  transaction_ref: string;
+  order_id: number;
+  customer_id?: number | null;
+  customer_name?: string | null;
+  customer_email?: string | null;
+  order_status?: string | null;
+  provider: string;
+  payment_method: string;
+  amount: number;
+  currency: string;
+  status: string;
+  provider_reference?: string | null;
+  card_brand?: string | null;
+  card_last4?: string | null;
+  failure_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export const paymentsApi = {
+  getConfig: async (): Promise<ApiResponse<ApiPaymentConfig>> => {
+    return request<ApiResponse<ApiPaymentConfig>>("/payments/config");
+  },
+
+  getAll: async (params?: {
+    status?: string;
+    method?: string;
+    search?: string;
+  }): Promise<ApiResponse<ApiPaymentTransaction[]>> => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set("status", params.status);
+    if (params?.method) query.set("method", params.method);
+    if (params?.search) query.set("search", params.search);
+    const qs = query.toString();
+    return request<ApiResponse<ApiPaymentTransaction[]>>(
+      `/payments${qs ? `?${qs}` : ""}`
+    );
+  },
+
+  getById: async (identifier: string | number): Promise<ApiResponse<ApiPaymentTransaction>> => {
+    return request<ApiResponse<ApiPaymentTransaction>>(
+      `/payments/${encodeURIComponent(String(identifier))}`
+    );
+  },
+};
+
+// ==========================================
+// DEDICATED SUPPLIERS API
+// ==========================================
+
+export interface ApiSupplierPurchaseOrderSummary {
+  id: number;
+  po_number: string;
+  warehouse_id: number;
+  warehouse_name?: string | null;
+  status: string;
+  total_cost: number;
+  expected_at?: string | null;
+  ordered_at?: string | null;
+  received_at?: string | null;
+  created_at: string;
+}
+
+export interface ApiSupplier {
+  id: number;
+  code: string;
+  name: string;
+  contact_name: string;
+  email: string;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  country?: string | null;
+  tax_id?: string | null;
+  payment_terms: string;
+  lead_time_days: number;
+  status: string;
+  notes?: string | null;
+  purchase_orders_count: number;
+  open_purchase_orders_count: number;
+  total_procured_amount: number;
+  recent_purchase_orders: ApiSupplierPurchaseOrderSummary[];
+  created_at: string;
+  updated_at: string;
+}
+
+export const suppliersApi = {
+  getAll: async (params?: {
+    status?: string;
+    search?: string;
+  }): Promise<ApiResponse<ApiSupplier[]>> => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set("status", params.status);
+    if (params?.search) query.set("search", params.search);
+    const qs = query.toString();
+    return request<ApiResponse<ApiSupplier[]>>(`/suppliers${qs ? `?${qs}` : ""}`);
+  },
+
+  getById: async (id: number): Promise<ApiResponse<ApiSupplier>> => {
+    return request<ApiResponse<ApiSupplier>>(`/suppliers/${id}`);
+  },
+
+  create: async (data: {
+    code?: string;
+    name: string;
+    contact_name: string;
+    email: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    country?: string;
+    tax_id?: string;
+    payment_terms?: string;
+    lead_time_days?: number;
+    status?: string;
+    notes?: string;
+  }): Promise<ApiResponse<ApiSupplier>> => {
+    return request<ApiResponse<ApiSupplier>>("/suppliers", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  update: async (
+    id: number,
+    data: Partial<{
+      code: string;
+      name: string;
+      contact_name: string;
+      email: string;
+      phone: string;
+      address: string;
+      city: string;
+      country: string;
+      tax_id: string;
+      payment_terms: string;
+      lead_time_days: number;
+      status: string;
+      notes: string;
+    }>
+  ): Promise<ApiResponse<ApiSupplier>> => {
+    return request<ApiResponse<ApiSupplier>>(`/suppliers/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  delete: async (id: number): Promise<ApiResponse<null>> => {
+    return request<ApiResponse<null>>(`/suppliers/${id}`, {
+      method: "DELETE",
+    });
+  },
+};
+
+// ==========================================
+// MULTI-WAREHOUSE INVENTORY & LEDGER API
+// ==========================================
+
+export interface ApiWarehouse {
+  id: number;
+  code: string;
+  name: string;
+  location?: string | null;
+  address?: string | null;
+  contact_name?: string | null;
+  contact_phone?: string | null;
+  is_default: boolean;
+  is_active: boolean;
+  total_units: number;
+  sku_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ApiWarehouseStock {
+  id: number;
+  warehouse_id: number;
+  warehouse_code: string;
+  warehouse_name: string;
+  product_id: number;
+  product_name: string;
+  product_price: number;
+  product_is_active: boolean;
+  quantity: number;
+  reserved_quantity: number;
+  reorder_point: number;
+  updated_at: string;
+}
+
+export interface ApiInventoryLedgerLine {
+  id: number;
+  journal_entry_id: number;
+  product_id: number;
+  product_name: string;
+  warehouse_id?: number | null;
+  warehouse_name?: string | null;
+  account_type: string;
+  debit_qty: number;
+  credit_qty: number;
+  unit_cost: number;
+  balance_after?: number | null;
+  created_at: string;
+}
+
+export interface ApiInventoryJournalEntry {
+  id: number;
+  entry_number: string;
+  entry_type: string;
+  reference_type?: string | null;
+  reference_id?: number | null;
+  reason?: string | null;
+  created_by_user_id?: number | null;
+  created_at: string;
+  lines: ApiInventoryLedgerLine[];
+}
+
+export interface ApiInventoryLedgerTrialBalance {
+  total_debits: number;
+  total_credits: number;
+  balanced: boolean;
+  total_entries: number;
+}
+
+export interface ApiInventoryLedgerResponse {
+  entries: ApiInventoryJournalEntry[];
+  trial_balance: ApiInventoryLedgerTrialBalance;
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export interface ApiPurchaseOrderItem {
+  id: number;
+  purchase_order_id: number;
+  product_id?: number | null;
+  product_name: string;
+  quantity_ordered: number;
+  quantity_received: number;
+  unit_cost: number;
+  line_total: number;
+}
+
+export interface ApiPurchaseOrder {
+  id: number;
+  po_number: string;
+  supplier_id: number;
+  supplier_name?: string | null;
+  warehouse_id: number;
+  warehouse_name?: string | null;
+  status: string;
+  total_cost: number;
+  expected_at?: string | null;
+  ordered_at?: string | null;
+  received_at?: string | null;
+  notes?: string | null;
+  created_by_user_id?: number | null;
+  created_at: string;
+  updated_at: string;
+  items: ApiPurchaseOrderItem[];
+}
+
+export interface ApiWarehouseTransferItem {
+  id: number;
+  transfer_id: number;
+  product_id?: number | null;
+  product_name: string;
+  quantity: number;
+}
+
+export interface ApiWarehouseTransfer {
+  id: number;
+  transfer_number: string;
+  source_warehouse_id: number;
+  source_warehouse_name?: string | null;
+  destination_warehouse_id: number;
+  destination_warehouse_name?: string | null;
+  status: string;
+  notes?: string | null;
+  created_by_user_id?: number | null;
+  dispatched_at?: string | null;
+  completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  items: ApiWarehouseTransferItem[];
+}
+
+export const inventoryApi = {
+  getWarehouses: async (): Promise<ApiResponse<ApiWarehouse[]>> => {
+    return request<ApiResponse<ApiWarehouse[]>>("/inventory/warehouses");
+  },
+
+  createWarehouse: async (data: {
+    code: string;
+    name: string;
+    location?: string;
+    address?: string;
+    contact_name?: string;
+    contact_phone?: string;
+    is_default?: boolean;
+    is_active?: boolean;
+  }): Promise<ApiResponse<ApiWarehouse>> => {
+    return request<ApiResponse<ApiWarehouse>>("/inventory/warehouses", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateWarehouse: async (
+    id: number,
+    data: Partial<{
+      code: string;
+      name: string;
+      location: string;
+      address: string;
+      contact_name: string;
+      contact_phone: string;
+      is_default: boolean;
+      is_active: boolean;
+    }>
+  ): Promise<ApiResponse<ApiWarehouse>> => {
+    return request<ApiResponse<ApiWarehouse>>(`/inventory/warehouses/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  },
+
+  getStocks: async (params?: {
+    warehouse_id?: number;
+    product_id?: number;
+  }): Promise<ApiResponse<ApiWarehouseStock[]>> => {
+    const query = new URLSearchParams();
+    if (params?.warehouse_id) query.set("warehouse_id", String(params.warehouse_id));
+    if (params?.product_id) query.set("product_id", String(params.product_id));
+    const qs = query.toString();
+    return request<ApiResponse<ApiWarehouseStock[]>>(
+      `/inventory/stocks${qs ? `?${qs}` : ""}`
+    );
+  },
+
+  getProductStocks: async (productId: number): Promise<ApiResponse<ApiWarehouseStock[]>> => {
+    return request<ApiResponse<ApiWarehouseStock[]>>(
+      `/inventory/products/${productId}/stocks`
+    );
+  },
+
+  createAdjustment: async (data: {
+    product_id: number;
+    warehouse_id?: number;
+    quantity_delta: number;
+    reason: string;
+    unit_cost?: number;
+  }): Promise<ApiResponse<ApiInventoryJournalEntry>> => {
+    return request<ApiResponse<ApiInventoryJournalEntry>>("/inventory/adjustments", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  getLedger: async (params?: {
+    product_id?: number;
+    warehouse_id?: number;
+    entry_type?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<ApiResponse<ApiInventoryLedgerResponse>> => {
+    const query = new URLSearchParams();
+    if (params?.product_id) query.set("product_id", String(params.product_id));
+    if (params?.warehouse_id) query.set("warehouse_id", String(params.warehouse_id));
+    if (params?.entry_type) query.set("entry_type", params.entry_type);
+    if (params?.page) query.set("page", String(params.page));
+    if (params?.limit) query.set("limit", String(params.limit));
+    const qs = query.toString();
+    return request<ApiResponse<ApiInventoryLedgerResponse>>(
+      `/inventory/ledger${qs ? `?${qs}` : ""}`
+    );
+  },
+
+  getPurchaseOrders: async (status?: string): Promise<ApiResponse<ApiPurchaseOrder[]>> => {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+    return request<ApiResponse<ApiPurchaseOrder[]>>(`/inventory/purchase-orders${qs}`);
+  },
+
+  createPurchaseOrder: async (data: {
+    supplier_id: number;
+    warehouse_id: number;
+    expected_at?: string;
+    notes?: string;
+    items: Array<{ product_id: number; quantity_ordered: number; unit_cost: number }>;
+  }): Promise<ApiResponse<ApiPurchaseOrder>> => {
+    return request<ApiResponse<ApiPurchaseOrder>>("/inventory/purchase-orders", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  orderPurchaseOrder: async (id: number): Promise<ApiResponse<ApiPurchaseOrder>> => {
+    return request<ApiResponse<ApiPurchaseOrder>>(`/inventory/purchase-orders/${id}/order`, {
+      method: "POST",
+    });
+  },
+
+  receivePurchaseOrder: async (
+    id: number,
+    data?: {
+      items?: Array<{ item_id: number; quantity_received: number }>;
+      notes?: string;
+    }
+  ): Promise<ApiResponse<ApiPurchaseOrder>> => {
+    return request<ApiResponse<ApiPurchaseOrder>>(`/inventory/purchase-orders/${id}/receive`, {
+      method: "POST",
+      body: JSON.stringify(data || {}),
+    });
+  },
+
+  cancelPurchaseOrder: async (id: number): Promise<ApiResponse<ApiPurchaseOrder>> => {
+    return request<ApiResponse<ApiPurchaseOrder>>(`/inventory/purchase-orders/${id}/cancel`, {
+      method: "POST",
+    });
+  },
+
+  getTransfers: async (status?: string): Promise<ApiResponse<ApiWarehouseTransfer[]>> => {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : "";
+    return request<ApiResponse<ApiWarehouseTransfer[]>>(`/inventory/transfers${qs}`);
+  },
+
+  createTransfer: async (data: {
+    source_warehouse_id: number;
+    destination_warehouse_id: number;
+    notes?: string;
+    items: Array<{ product_id: number; quantity: number }>;
+  }): Promise<ApiResponse<ApiWarehouseTransfer>> => {
+    return request<ApiResponse<ApiWarehouseTransfer>>("/inventory/transfers", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  dispatchTransfer: async (id: number): Promise<ApiResponse<ApiWarehouseTransfer>> => {
+    return request<ApiResponse<ApiWarehouseTransfer>>(`/inventory/transfers/${id}/dispatch`, {
+      method: "POST",
+    });
+  },
+
+  completeTransfer: async (id: number): Promise<ApiResponse<ApiWarehouseTransfer>> => {
+    return request<ApiResponse<ApiWarehouseTransfer>>(`/inventory/transfers/${id}/complete`, {
+      method: "POST",
+    });
+  },
+
+  cancelTransfer: async (id: number): Promise<ApiResponse<ApiWarehouseTransfer>> => {
+    return request<ApiResponse<ApiWarehouseTransfer>>(`/inventory/transfers/${id}/cancel`, {
+      method: "POST",
+    });
+  },
+};
+
+// ==========================================
+// DEDICATED REFUNDS & ACCOUNTING LEDGER API
+// ==========================================
+
+export interface ApiRefundLedgerEntry {
+  id: number;
+  journal_ref: string;
+  refund_id: number;
+  order_id: number;
+  entry_type: string;
+  account_code: string;
+  account_name: string;
+  debit_amount: number;
+  credit_amount: number;
+  currency: string;
+  memo?: string | null;
+  created_by_user_id?: number | null;
+  created_at: string;
+}
+
+export interface ApiRefund {
+  id: number;
+  refund_number: string;
+  order_id: number;
+  customer_id?: number | null;
+  customer_name?: string | null;
+  customer_email?: string | null;
+  order_total?: number | null;
+  order_status?: string | null;
+  order_payment_status?: string | null;
+  amount: number;
+  currency: string;
+  refund_method: string;
+  status: string;
+  reason: string;
+  notes?: string | null;
+  restock_items: boolean;
+  restocked: boolean;
+  warehouse_id?: number | null;
+  external_reference?: string | null;
+  requested_at: string;
+  approved_at?: string | null;
+  processed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  ledger_entries: ApiRefundLedgerEntry[];
+}
+
+export interface ApiRefundAccountBalance {
+  account_code: string;
+  account_name: string;
+  total_debits: number;
+  total_credits: number;
+  net_balance: number;
+}
+
+export interface ApiRefundLedgerTrialBalance {
+  total_debits: number;
+  total_credits: number;
+  balanced: boolean;
+  accounts: ApiRefundAccountBalance[];
+}
+
+export interface ApiRefundLedgerResponse {
+  entries: ApiRefundLedgerEntry[];
+  trial_balance: ApiRefundLedgerTrialBalance;
+  total: number;
+  page: number;
+  limit: number;
+}
+
+export const refundsApi = {
+  getAll: async (params?: {
+    status?: string;
+    search?: string;
+    order_id?: number;
+  }): Promise<ApiResponse<ApiRefund[]>> => {
+    const query = new URLSearchParams();
+    if (params?.status) query.set("status", params.status);
+    if (params?.search) query.set("search", params.search);
+    if (params?.order_id) query.set("order_id", String(params.order_id));
+    const qs = query.toString();
+    return request<ApiResponse<ApiRefund[]>>(`/refunds${qs ? `?${qs}` : ""}`);
+  },
+
+  getById: async (identifier: string | number): Promise<ApiResponse<ApiRefund>> => {
+    return request<ApiResponse<ApiRefund>>(
+      `/refunds/${encodeURIComponent(String(identifier))}`
+    );
+  },
+
+  create: async (data: {
+    order_id: number;
+    amount?: number;
+    refund_method?: string;
+    reason: string;
+    notes?: string;
+    restock_items?: boolean;
+    warehouse_id?: number;
+  }): Promise<ApiResponse<ApiRefund>> => {
+    return request<ApiResponse<ApiRefund>>("/refunds", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  approve: async (
+    identifier: string | number,
+    data?: { notes?: string }
+  ): Promise<ApiResponse<ApiRefund>> => {
+    return request<ApiResponse<ApiRefund>>(
+      `/refunds/${encodeURIComponent(String(identifier))}/approve`,
+      {
+        method: "POST",
+        body: JSON.stringify(data || {}),
+      }
+    );
+  },
+
+  process: async (
+    identifier: string | number,
+    data?: {
+      external_reference?: string;
+      restock_items?: boolean;
+      warehouse_id?: number;
+      notes?: string;
+    }
+  ): Promise<ApiResponse<ApiRefund>> => {
+    return request<ApiResponse<ApiRefund>>(
+      `/refunds/${encodeURIComponent(String(identifier))}/process`,
+      {
+        method: "POST",
+        body: JSON.stringify(data || {}),
+      }
+    );
+  },
+
+  reject: async (
+    identifier: string | number,
+    data: { reason: string }
+  ): Promise<ApiResponse<ApiRefund>> => {
+    return request<ApiResponse<ApiRefund>>(
+      `/refunds/${encodeURIComponent(String(identifier))}/reject`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
+  },
+
+  getLedger: async (params?: {
+    refund_id?: number;
+    account_code?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<ApiResponse<ApiRefundLedgerResponse>> => {
+    const query = new URLSearchParams();
+    if (params?.refund_id) query.set("refund_id", String(params.refund_id));
+    if (params?.account_code) query.set("account_code", params.account_code);
+    if (params?.page) query.set("page", String(params.page));
+    if (params?.limit) query.set("limit", String(params.limit));
+    const qs = query.toString();
+    return request<ApiResponse<ApiRefundLedgerResponse>>(
+      `/refunds/ledger${qs ? `?${qs}` : ""}`
+    );
+  },
+};
+
+// ==========================================
+// ADMINISTRATIVE REPORTING API
+// ==========================================
+
+export interface ApiPaymentMethodBreakdown {
+  payment_method: string;
+  orders_count: number;
+  gross_amount: number;
+}
+
+export interface ApiDailyTrendPoint {
+  date: string;
+  orders_count: number;
+  gross_revenue: number;
+  refunds_total: number;
+  net_revenue: number;
+}
+
+export interface ApiExecutiveReport {
+  days: number;
+  gross_paid_revenue: number;
+  settled_refunds_total: number;
+  pending_refund_liability: number;
+  net_revenue: number;
+  total_orders: number;
+  paid_orders_count: number;
+  cancelled_orders_count: number;
+  average_order_value: number;
+  payment_method_breakdown: ApiPaymentMethodBreakdown[];
+  daily_trend: ApiDailyTrendPoint[];
+}
+
+export interface ApiWarehouseInventorySummary {
+  warehouse_id: number;
+  warehouse_code: string;
+  warehouse_name: string;
+  is_default: boolean;
+  sku_count: number;
+  total_units: number;
+  low_stock_skus: number;
+  out_of_stock_skus: number;
+  retail_valuation: number;
+}
+
+export interface ApiInventoryReport {
+  total_products: number;
+  total_warehouses: number;
+  total_on_hand_units: number;
+  total_retail_valuation: number;
+  total_po_cost_committed: number;
+  open_purchase_orders_count: number;
+  in_transit_transfers_count: number;
+  ledger_total_debits: number;
+  ledger_total_credits: number;
+  ledger_balanced: boolean;
+  warehouses: ApiWarehouseInventorySummary[];
+}
+
+export const reportsApi = {
+  getExecutive: async (days: number = 30): Promise<ApiResponse<ApiExecutiveReport>> => {
+    return request<ApiResponse<ApiExecutiveReport>>(`/reports/executive?days=${days}`);
+  },
+
+  getInventory: async (): Promise<ApiResponse<ApiInventoryReport>> => {
+    return request<ApiResponse<ApiInventoryReport>>("/reports/inventory");
+  },
+
+  downloadLedgerCsv: async (ledger: "inventory" | "refunds"): Promise<string> => {
+    const token = getAccessToken();
+    const res = await fetch(
+      `${API_BASE_URL}/reports/ledger-export?ledger=${encodeURIComponent(ledger)}`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }
+    );
+    if (!res.ok) {
+      throw new Error(`Failed to export ${ledger} ledger (${res.status}).`);
+    }
+    return res.text();
   },
 };
 

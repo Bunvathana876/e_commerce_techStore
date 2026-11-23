@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { settingsApi, type ApiPublicStoreSettings } from "@/lib/api";
 import {
   CheckCircle2,
   CreditCard,
@@ -16,6 +17,24 @@ import {
 export default function StoreFooter() {
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+  const [storeMeta, setStoreMeta] = useState<ApiPublicStoreSettings | null>(null);
+
+  useEffect(() => {
+    settingsApi
+      .getPublic()
+      .then((res) => {
+        if (res.success && res.data) {
+          setStoreMeta(res.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const freeShippingMin = Number(storeMeta?.free_shipping_min ?? 100);
+  const freeShippingText =
+    freeShippingMin <= 0
+      ? "Free standard shipping on all orders"
+      : `Free shipping on orders $${Number.isFinite(freeShippingMin) ? freeShippingMin.toFixed(0) : "100"}+`;
 
   const handleSubscribe = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +57,7 @@ export default function StoreFooter() {
                 Express Delivery
               </h3>
               <p className="text-xs text-slate-400 mt-0.5">
-                Free shipping on orders $100+
+                {freeShippingText}
               </p>
             </div>
           </div>
@@ -236,10 +255,10 @@ export default function StoreFooter() {
       {/* Bottom Copyright */}
       <div className="border-t border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-500">
-          <p>© {new Date().getFullYear()} Blue Panda Marketplace. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} {storeMeta?.store_name || "Blue Panda"} Marketplace. All rights reserved.</p>
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center gap-1.5 text-slate-400">
-              <CreditCard size={14} /> Visa • Mastercard • KHQR • Apple Pay • COD
+              <CreditCard size={14} /> Visa • Mastercard • Credit / Debit Card • Cash on Delivery
             </span>
           </div>
         </div>

@@ -1,5 +1,6 @@
 from app.core.config import settings
 from app.core.dependencies import require_roles
+from app.core.password_policy import validate_password_strength
 from app.core.rate_limit import RateLimiter
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -63,6 +64,20 @@ def create_user(
 ):
     from app.core.security import hash_password
 
+    clean_name = request.name.strip()
+    if not clean_name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User name cannot be empty.",
+        )
+
+    is_valid, error_msg = validate_password_strength(request.password)
+    if not is_valid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_msg or "Password does not meet security policy requirements.",
+        )
+
     existing = db.scalar(select(User).where(User.email == request.email.lower().strip()))
     if existing:
         raise HTTPException(
@@ -71,7 +86,7 @@ def create_user(
         )
 
     user = User(
-        name=request.name.strip(),
+        name=clean_name,
         email=request.email.lower().strip(),
         password_hash=hash_password(request.password),
         phone=request.phone.strip() if request.phone else None,
@@ -111,7 +126,13 @@ def update_user(
         )
 
     if request.name is not None:
-        user.name = request.name.strip()
+        clean_name = request.name.strip()
+        if not clean_name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User name cannot be empty.",
+            )
+        user.name = clean_name
     if request.email is not None:
         conflict = db.scalar(
             select(User).where(
@@ -130,11 +151,33 @@ def update_user(
     if request.avatar is not None:
         user.avatar = request.avatar.strip() if request.avatar.strip() else None
     if request.role is not None:
-        user.role = request.role.strip()
+        next_role = request.role.strip()
+        if next_role != user.role:
+            if user.id == current_user.id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Administrators cannot change their own role.",
+                )
+            user.role = next_role
+            AuthSessionService.revoke_all(db, user, "role_changed")
     if request.is_active is not None:
+        if request.is_active is False and user.id == current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Administrators cannot disable their own account.",
+            )
+        was_active = user.is_active
         user.is_active = request.is_active
-    if request.password is not None and len(request.password.strip()) >= 6:
-        user.password_hash = hash_password(request.password.strip())
+        if was_active and not request.is_active:
+            AuthSessionService.revoke_all(db, user, "account_disabled")
+    if request.password is not None:
+        is_valid, error_msg = validate_password_strength(request.password)
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=error_msg or "Password does not meet security policy requirements.",
+            )
+        user.password_hash = hash_password(request.password)
         AuthSessionService.revoke_all(db, user, "password_changed")
 
     db.commit()
@@ -153,6 +196,12 @@ def delete_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_roles("admin")),
 ):
+    if user_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Administrators cannot delete their own account.",
+        )
+
     user = db.scalar(select(User).where(User.id == user_id))
     if not user:
         raise HTTPException(

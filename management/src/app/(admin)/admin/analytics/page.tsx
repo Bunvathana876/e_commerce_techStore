@@ -1,51 +1,71 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import {
+  AlertCircle,
   TrendingUp,
   Calendar,
   Loader2,
   Package,
+  RefreshCw,
   ShoppingCart,
   DollarSign,
 } from "lucide-react";
-import { statsApi, ordersApi, productsApi, DashboardStats, ApiOrder, ApiProduct } from "@/lib/api";
+import { ordersApi, productsApi, ApiOrder, ApiProduct } from "@/lib/api";
+import {
+  summarizeAnalyticsPeriod,
+  type AnalyticsDateRange,
+} from "@/lib/analytics-utils";
+
+const RANGE_LABELS: Record<AnalyticsDateRange, string> = {
+  "7days": "Last 7 days",
+  "30days": "Last 30 days",
+  "90days": "Last 90 days",
+  all: "All time",
+};
 
 export default function AnalyticsPage() {
-  const [dateRange, setDateRange] = useState("7days");
+  const [dateRange, setDateRange] = useState<AnalyticsDateRange>("30days");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [products, setProducts] = useState<ApiProduct[]>([]);
 
   const loadAnalytics = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
-      const [statsRes, ordersRes, productsRes] = await Promise.all([
-        statsApi.getOverview(),
+      const [ordersRes, productsRes] = await Promise.all([
         ordersApi.list(),
         productsApi.list(),
       ]);
 
-      if (statsRes.success && statsRes.data) setStats(statsRes.data);
-      if (ordersRes.success && ordersRes.data) setOrders(ordersRes.data);
-      if (productsRes.success && productsRes.data) setProducts(productsRes.data.items);
-    } catch (err) {
-      console.error("Failed to load analytics:", err);
+      if (!ordersRes.success || !Array.isArray(ordersRes.data)) {
+        throw new Error(ordersRes.message || "Unable to load order analytics.");
+      }
+      setOrders(ordersRes.data);
+      if (productsRes.success && productsRes.data) {
+        setProducts(productsRes.data.items);
+      }
+    } catch (err: unknown) {
+      setLoadError(
+        err instanceof Error ? err.message : "Failed to load analytics from server."
+      );
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadAnalytics();
+    void loadAnalytics();
   }, [loadAnalytics]);
 
-  const totalRevenue = stats?.total_revenue ?? orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-  const totalOrders = stats?.total_orders ?? orders.length;
-  const avgOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
+  const period = useMemo(
+    () => summarizeAnalyticsPeriod(orders, dateRange),
+    [orders, dateRange]
+  );
 
   return (
     <div className="space-y-6 pb-10">
@@ -54,33 +74,63 @@ export default function AnalyticsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Store Analytics</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Real-time conversion metrics and database activity from PostgreSQL
+            Order conversion and revenue breakdown ({RANGE_LABELS[dateRange]})
           </p>
         </div>
 
-        <div className="relative">
-          <Calendar
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-          />
-          <select
-            value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
-            className="pl-9 pr-8 py-2.5 text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7699F0] appearance-none"
+        <div className="flex items-center gap-2.5">
+          <div className="relative">
+            <Calendar
+              size={16}
+              aria-hidden="true"
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+            />
+            <label htmlFor="analytics-date-range" className="sr-only">
+              Select analytics date range
+            </label>
+            <select
+              id="analytics-date-range"
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value as AnalyticsDateRange)}
+              className="pl-9 pr-8 py-2.5 text-sm bg-white border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7699F0] appearance-none"
+            >
+              <option value="7days">Last 7 days</option>
+              <option value="30days">Last 30 days</option>
+              <option value="90days">Last 90 days</option>
+              <option value="all">All time</option>
+            </select>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void loadAnalytics()}
+            disabled={loading}
+            aria-label="Refresh analytics"
+            className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
           >
-            <option value="7days">Last 7 days</option>
-            <option value="30days">Last 30 days</option>
-            <option value="90days">Last 90 days</option>
-          </select>
+            <RefreshCw size={16} className={loading ? "animate-spin" : ""} aria-hidden="true" />
+          </button>
         </div>
       </div>
 
       {loading ? (
         <div className="py-24 flex flex-col items-center justify-center text-[#7699F0]">
-          <Loader2 size={36} className="animate-spin mb-3" />
+          <Loader2 size={36} className="animate-spin mb-3" aria-hidden="true" />
           <p className="text-sm font-medium text-gray-600">
             Calculating analytics from PostgreSQL...
           </p>
+        </div>
+      ) : loadError ? (
+        <div role="alert" className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-center space-y-3">
+          <AlertCircle size={24} className="mx-auto text-rose-600" aria-hidden="true" />
+          <p className="text-sm font-semibold text-rose-800">{loadError}</p>
+          <button
+            type="button"
+            onClick={() => void loadAnalytics()}
+            className="px-4 py-2 rounded-xl bg-white border border-rose-200 text-sm font-semibold text-rose-700 hover:bg-rose-100"
+          >
+            Retry
+          </button>
         </div>
       ) : (
         <>
@@ -90,59 +140,67 @@ export default function AnalyticsPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-500">Gross Sales</span>
                 <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                  <DollarSign size={20} />
+                  <DollarSign size={20} aria-hidden="true" />
                 </div>
               </div>
               <p className="text-2xl font-bold text-gray-900 mt-2">
-                ${totalRevenue.toFixed(2)}
+                ${period.grossRevenue.toFixed(2)}
               </p>
-              <p className="text-xs text-emerald-600 font-medium mt-1">Database verified</p>
+              <p className="text-xs text-emerald-600 font-medium mt-1">
+                {period.activeOrders.length} active orders ({RANGE_LABELS[dateRange]})
+              </p>
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-500">Total Orders</span>
                 <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#7699F0] flex items-center justify-center">
-                  <ShoppingCart size={20} />
+                  <ShoppingCart size={20} aria-hidden="true" />
                 </div>
               </div>
-              <p className="text-2xl font-bold text-gray-900 mt-2">{totalOrders}</p>
-              <p className="text-xs text-blue-600 font-medium mt-1">Orders in PostgreSQL</p>
+              <p className="text-2xl font-bold text-gray-900 mt-2">{period.totalOrders}</p>
+              <p className="text-xs text-blue-600 font-medium mt-1">
+                {period.cancelledCount} cancelled in period
+              </p>
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-500">Avg. Order Value</span>
                 <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-                  <TrendingUp size={20} />
+                  <TrendingUp size={20} aria-hidden="true" />
                 </div>
               </div>
               <p className="text-2xl font-bold text-gray-900 mt-2">
-                ${avgOrderValue.toFixed(2)}
+                ${period.avgOrderValue.toFixed(2)}
               </p>
-              <p className="text-xs text-purple-600 font-medium mt-1">Per completed order</p>
+              <p className="text-xs text-purple-600 font-medium mt-1">
+                Per non-cancelled order
+              </p>
             </div>
 
             <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-500">Catalog Size</span>
                 <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                  <Package size={20} />
+                  <Package size={20} aria-hidden="true" />
                 </div>
               </div>
               <p className="text-2xl font-bold text-gray-900 mt-2">
                 {products.length} Items
               </p>
-              <p className="text-xs text-amber-600 font-medium mt-1">Across all categories</p>
+              <p className="text-xs text-amber-600 font-medium mt-1">Active catalog inventory</p>
             </div>
           </div>
 
-          {/* Breakdown & Top Catalog Items */}
+          {/* Breakdown & Top Selling Items */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Top Products */}
+            {/* Top Selling Products in Period */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
               <div className="flex items-center justify-between">
-                <h2 className="font-semibold text-gray-900">Top Inventory Catalog</h2>
+                <h2 className="font-semibold text-gray-900">
+                  Top Selling Products ({RANGE_LABELS[dateRange]})
+                </h2>
                 <Link
                   href="/admin/products"
                   className="text-xs font-semibold text-[#7699F0] hover:underline"
@@ -151,56 +209,67 @@ export default function AnalyticsPage() {
                 </Link>
               </div>
 
-              <div className="divide-y divide-gray-100">
-                {products.slice(0, 6).map((p) => (
-                  <div key={p.id} className="py-3 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-gray-900">{p.name}</p>
-                      <p className="text-xs text-gray-400">
-                        {p.category?.name || "General"} · Stock: {p.stock} units
-                      </p>
+              {period.topProducts.length === 0 ? (
+                <p className="text-sm text-gray-500 py-8 text-center">
+                  No non-cancelled product sales recorded in this date window.
+                </p>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {period.topProducts.map((item) => (
+                    <div
+                      key={`${item.productId ?? "x"}-${item.productName}`}
+                      className="py-3 flex items-center justify-between"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">{item.productName}</p>
+                        <p className="text-xs text-gray-400">{item.unitsSold} units sold</p>
+                      </div>
+                      <span className="font-semibold text-gray-900 text-sm">
+                        ${item.revenue.toFixed(2)}
+                      </span>
                     </div>
-                    <span className="font-semibold text-gray-900 text-sm">
-                      ${Number(p.price).toFixed(2)}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Order Fulfillment Status Breakdown */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
-              <h2 className="font-semibold text-gray-900">Order Fulfillment Distribution</h2>
+              <h2 className="font-semibold text-gray-900">
+                Order Fulfillment Distribution ({RANGE_LABELS[dateRange]})
+              </h2>
               <div className="space-y-3 pt-2">
                 {[
                   {
                     status: "Delivered",
-                    count: orders.filter((o) => o.status === "delivered").length,
+                    count: period.filteredOrders.filter((o) => o.status === "delivered").length,
                     color: "bg-emerald-500",
                   },
                   {
                     status: "Shipped",
-                    count: orders.filter((o) => o.status === "shipped").length,
+                    count: period.filteredOrders.filter((o) => o.status === "shipped").length,
                     color: "bg-blue-500",
                   },
                   {
                     status: "Processing",
-                    count: orders.filter((o) => o.status === "processing").length,
+                    count: period.filteredOrders.filter((o) => o.status === "processing").length,
                     color: "bg-indigo-500",
                   },
                   {
                     status: "Pending",
-                    count: orders.filter((o) => o.status === "pending").length,
+                    count: period.filteredOrders.filter((o) => o.status === "pending").length,
                     color: "bg-amber-500",
                   },
                   {
                     status: "Cancelled",
-                    count: orders.filter((o) => o.status === "cancelled").length,
+                    count: period.cancelledCount,
                     color: "bg-red-500",
                   },
                 ].map((item) => {
                   const percent =
-                    totalOrders > 0 ? ((item.count / totalOrders) * 100).toFixed(1) : "0";
+                    period.totalOrders > 0
+                      ? ((item.count / period.totalOrders) * 100).toFixed(1)
+                      : "0";
                   return (
                     <div key={item.status} className="space-y-1">
                       <div className="flex justify-between text-xs font-medium">

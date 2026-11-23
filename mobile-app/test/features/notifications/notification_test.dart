@@ -302,16 +302,14 @@ void main() {
       expect(provider.unreadCount, 0);
       expect(find.text('No notifications yet'), findsOneWidget);
 
-      // Restore notifications button should be visible in empty state
-      final restoreBtnFinder = find.text('Restore Sample Notifications');
-      expect(restoreBtnFinder, findsOneWidget);
+      // Refresh button should be visible in empty state without inserting fake sample items
+      final refreshBtnFinder = find.text('Refresh Notifications');
+      expect(refreshBtnFinder, findsOneWidget);
 
-      // Tap restore
-      await tester.tap(restoreBtnFinder);
+      await tester.tap(refreshBtnFinder);
       await tester.pumpAndSettle();
 
-      // Sample notifications should be back
-      expect(provider.notifications.isNotEmpty, isTrue);
+      expect(provider.notifications.isEmpty, isTrue);
     });
   });
 }

@@ -53,6 +53,17 @@ class Settings(BaseSettings):
     AUTO_INIT_DB: bool = True
     SEED_DEMO_DATA: bool = True
     UPLOAD_DIR: str = "uploads"
+    UPLOAD_STORAGE_BACKEND: str = "auto"  # auto | local | supabase | s3
+    SUPABASE_URL: str | None = None
+    SUPABASE_SERVICE_ROLE_KEY: str | None = None
+    SUPABASE_STORAGE_BUCKET: str = "product-images"
+    SUPABASE_STORAGE_PUBLIC_BASE_URL: str | None = None
+    S3_BUCKET: str | None = None
+    S3_REGION: str = "auto"
+    S3_ENDPOINT_URL: str | None = None
+    S3_ACCESS_KEY_ID: str | None = None
+    S3_SECRET_ACCESS_KEY: str | None = None
+    S3_PUBLIC_BASE_URL: str | None = None
     MAX_UPLOAD_SIZE_BYTES: int = 5 * 1024 * 1024  # 5 MB default cap
     MAX_IMAGE_DIMENSION: int = 4096
     MAX_IMAGE_PIXELS: int = 16_777_216  # 4096 x 4096 decompression-bomb ceiling
@@ -91,8 +102,32 @@ class Settings(BaseSettings):
     RATE_LIMIT_AUTH_LOGIN: int = 5
     RATE_LIMIT_AUTH_REGISTER: int = 5
     RATE_LIMIT_AUTH_REFRESH: int = 10
+    RATE_LIMIT_AUTH_PASSWORD_RESET: int = 5
     RATE_LIMIT_SENSITIVE_MUTATIONS: int = 20
     RATE_LIMIT_CATALOG_BROWSING: int = 120
+
+    # Account recovery & transactional email (SMTP / SendGrid)
+    EMAIL_PROVIDER: str = "auto"  # auto | smtp | sendgrid | console
+    EMAIL_FROM_ADDRESS: str = "no-reply@bluepanda.local"
+    EMAIL_FROM_NAME: str = "Blue Panda"
+    SMTP_HOST: str | None = None
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str | None = None
+    SMTP_PASSWORD: str | None = None
+    SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
+    SMTP_TIMEOUT_SECONDS: int = 10
+    SENDGRID_API_KEY: str | None = None
+    PASSWORD_RESET_EXPIRE_MINUTES: int = Field(default=30, ge=5, le=1440)
+    STOREFRONT_BASE_URL: str = "http://localhost:3000"
+    MANAGEMENT_BASE_URL: str = "http://localhost:3001"
+
+    # Digital card payments (Stripe) — supported checkout methods are Credit / Debit Card & Cash on Delivery
+    STRIPE_SECRET_KEY: str | None = None
+    STRIPE_PUBLISHABLE_KEY: str | None = None
+    STRIPE_WEBHOOK_SECRET: str | None = None
+    STRIPE_API_BASE_URL: str = "https://api.stripe.com/v1"
+    PAYMENT_CURRENCY: str = "USD"
 
     model_config = SettingsConfigDict(
         env_file=".env",

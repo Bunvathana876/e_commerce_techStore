@@ -1,16 +1,30 @@
 from decimal import Decimal
+import math
 from fastapi import HTTPException, status
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.cart import CartItem
 from app.models.notification import Notification
 from app.models.order import Order, OrderItem
+from app.models.payment import PaymentTransaction
 from app.models.product import Product
+from app.models.seller import Seller
 from app.models.user import User
-from app.schemas.order import OrderCreateRequest, OrderResponse
+from app.schemas.order import (
+    OrderCreateRequest,
+    OrderItemResponse,
+    OrderResponse,
+    SellerDashboardLowStockProduct,
+    SellerDashboardResponse,
+    SellerOrderPaginationResponse,
+    SellerOrderResponse,
+)
 from app.services.authorization_service import AuthorizationService
 from app.services.inventory_service import InventoryService
+from app.services.payment_service import PaymentService
+from app.services.refund_service import RefundService
+from app.services.shipment_service import ShipmentService
 
 ALLOWED_ORDER_STATUSES = {
     "pending",
@@ -58,15 +72,10 @@ ALLOWED_CHECKOUT_PAYMENT_METHODS: dict[str, str] = {
     "cod": "Cash on Delivery",
     "credit / debit card": "Credit / Debit Card",
     "credit or debit card": "Credit / Debit Card",
-    "credit card": "Credit Card",
-    "debit card": "Debit Card",
+    "credit/debit card": "Credit / Debit Card",
+    "credit card": "Credit / Debit Card",
+    "debit card": "Credit / Debit Card",
     "card": "Credit / Debit Card",
-    "khqr scan & pay": "KHQR Scan & Pay",
-    "aba / khqr pay": "ABA / KHQR Pay",
-    "aba khqr": "ABA / KHQR Pay",
-    "khqr": "KHQR Scan & Pay",
-    "qr pay": "QR Pay",
-    "apple pay": "Apple Pay",
 }
 
 
@@ -83,7 +92,10 @@ class OrderService:
         if canonical is None:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Unsupported payment method '{cleaned}'.",
+                detail=(
+                    f"Unsupported payment method '{cleaned}'. "
+                    "Supported payment methods are Credit / Debit Card and Cash on Delivery."
+                ),
             )
         return canonical
 
@@ -188,6 +200,22 @@ class OrderService:
             checkout_items = [(item.product_id, item.quantity) for item in cart_items]
 
         try:
+            # 1b. Enforce live store payment & shipping rules atomically inside checkout
+            from app.services.settings_service import SettingsService
+
+            store_cfg = SettingsService.get_effective_settings(db)
+            is_cod_order = OrderService._is_cod_method(canonical_payment_method)
+            if is_cod_order and not store_cfg.enable_cod_payment:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Cash on Delivery is currently disabled in store settings.",
+                )
+            if not is_cod_order and not store_cfg.enable_card_payment:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Credit / Debit Card payments are currently disabled in store settings.",
+                )
+
             # 2. Resolve shipping address before mutating inventory
             final_address = ""
             if request.shipping_address_id:
@@ -220,12 +248,14 @@ class OrderService:
                 )
 
             # 3. Atomically deduct stock in deterministic ID order
+            ledger_lines: list[dict] = []
             updated_products = InventoryService.deduct_stock(
                 db,
                 checkout_items,
                 inactive_detail_fn=lambda _pid, prod: (
                     f"Product '{prod.name if prod else 'Unknown'}' is no longer available."
                 ),
+                ledger_out=ledger_lines,
             )
 
             subtotal = Decimal("0.00")
@@ -266,11 +296,13 @@ class OrderService:
                 discount_amount = coupon_res.discount_amount
                 applied_coupon_code = coupon_res.code
 
-            # Standard shipping fee (free if subtotal >= 100)
+            # Shipping fee driven by persisted StoreSetting rules
+            free_shipping_min = Decimal(str(store_cfg.free_shipping_min))
+            standard_shipping_fee = Decimal(str(store_cfg.standard_shipping_fee))
             shipping_fee = (
                 Decimal("0.00")
-                if subtotal >= Decimal("100.00")
-                else Decimal("2.00")
+                if subtotal >= free_shipping_min
+                else standard_shipping_fee
             )
             total = max(Decimal("0.00"), subtotal - discount_amount + shipping_fee)
 
@@ -289,6 +321,38 @@ class OrderService:
             )
             db.add(new_order)
             db.flush()
+
+            InventoryService.record_deduction_journal(
+                db,
+                ledger_lines,
+                entry_type="order_sale",
+                reference_type="order",
+                reference_id=new_order.id,
+                reason=f"Customer checkout Order #{new_order.id}",
+                actor_user_id=user_id,
+            )
+
+            if applied_coupon_code:
+                from app.services.coupon_service import CouponService
+
+                CouponService.record_redemption(
+                    db,
+                    code=applied_coupon_code,
+                    user_id=user_id,
+                    order_id=new_order.id,
+                )
+
+            payment_provider = (
+                "cod"
+                if OrderService._is_cod_method(canonical_payment_method)
+                else ("stripe" if PaymentService.is_stripe_configured() else "card_pending")
+            )
+            PaymentService.create_transaction_for_order(
+                db,
+                order=new_order,
+                provider=payment_provider,
+                status_val="pending",
+            )
 
             # 4. Create Order Items with historical price snapshots
             for oi_data in order_items_to_create:
@@ -356,6 +420,7 @@ class OrderService:
             .options(
                 selectinload(Order.items),
                 selectinload(Order.user),
+                selectinload(Order.shipment),
             )
             .where(Order.id == new_order.id)
         )
@@ -373,6 +438,7 @@ class OrderService:
                 .options(
                     selectinload(Order.items),
                     selectinload(Order.user),
+                    selectinload(Order.shipment),
                 )
                 .where(Order.user_id == user_id)
                 .order_by(Order.created_at.desc())
@@ -382,15 +448,20 @@ class OrderService:
 
     @staticmethod
     def get_order_by_id(
-        db: Session, order_id: int, user_id: int | None = None
+        db: Session,
+        order_id: int,
+        user_id: int | None = None,
+        seller_ids: list[int] | None = None,
     ) -> OrderResponse:
-        query = select(Order).options(
-            selectinload(Order.items),
-            selectinload(Order.user),
-        ).where(Order.id == order_id)
-
-        if user_id is not None:
-            query = query.where(Order.user_id == user_id)
+        query = (
+            select(Order)
+            .options(
+                selectinload(Order.items).selectinload(OrderItem.product),
+                selectinload(Order.user),
+                selectinload(Order.shipment),
+            )
+            .where(Order.id == order_id)
+        )
 
         order = db.scalar(query)
         if not order:
@@ -398,6 +469,20 @@ class OrderService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Order not found.",
             )
+
+        if user_id is not None or seller_ids is not None:
+            buyer_ok = user_id is not None and order.user_id == user_id
+            allowed_seller_ids = set(seller_ids or [])
+            seller_ok = bool(allowed_seller_ids) and any(
+                item.product is not None and item.product.seller_id in allowed_seller_ids
+                for item in order.items
+            )
+            if not buyer_ok and not seller_ok:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Order not found.",
+                )
+
         return OrderResponse.model_validate(order)
 
     @staticmethod
@@ -407,6 +492,7 @@ class OrderService:
             .options(
                 selectinload(Order.items),
                 selectinload(Order.user),
+                selectinload(Order.shipment),
             )
             .order_by(Order.created_at.desc())
         )
@@ -414,6 +500,204 @@ class OrderService:
             query = query.limit(limit)
         orders = list(db.scalars(query).all())
         return [OrderResponse.model_validate(o) for o in orders]
+
+    @staticmethod
+    def _serialize_seller_order(
+        order: Order,
+        seller_id: int,
+        *,
+        can_fulfill_store: bool,
+    ) -> SellerOrderResponse:
+        seller_items = [
+            item
+            for item in order.items
+            if item.product is not None and item.product.seller_id == seller_id
+        ]
+        seller_subtotal = sum(
+            (Decimal(item.subtotal) for item in seller_items),
+            Decimal("0.00"),
+        ).quantize(Decimal("0.01"))
+        can_update_status = (
+            can_fulfill_store
+            and bool(order.items)
+            and all(
+                item.product is not None and item.product.seller_id == seller_id
+                for item in order.items
+            )
+        )
+        base = OrderResponse.model_validate(order)
+        return SellerOrderResponse(
+            **base.model_dump(),
+            seller_items=[OrderItemResponse.model_validate(i) for i in seller_items],
+            seller_subtotal=seller_subtotal,
+            can_update_status=can_update_status,
+        )
+
+    @staticmethod
+    def get_seller_orders(
+        db: Session,
+        *,
+        seller: Seller,
+        status_filter: str | None = None,
+        search: str | None = None,
+        page: int = 1,
+        limit: int = 20,
+    ) -> SellerOrderPaginationResponse:
+        base_query = (
+            select(Order.id)
+            .join(OrderItem, OrderItem.order_id == Order.id)
+            .join(Product, Product.id == OrderItem.product_id)
+            .where(Product.seller_id == seller.id)
+        )
+        if status_filter and status_filter.strip().lower() != "all":
+            base_query = base_query.where(
+                func.lower(Order.status) == status_filter.strip().lower()
+            )
+        if search and search.strip():
+            raw = search.strip()
+            digits = raw.lstrip("#")
+            term = f"%{raw}%"
+            filters = [
+                Order.shipping_address.ilike(term),
+                OrderItem.product_name.ilike(term),
+                Order.user.has(or_(User.name.ilike(term), User.email.ilike(term))),
+            ]
+            if digits.isdigit():
+                filters.append(Order.id == int(digits))
+            base_query = base_query.where(or_(*filters))
+
+        distinct_ids_subq = base_query.distinct().subquery()
+        total = db.scalar(select(func.count()).select_from(distinct_ids_subq)) or 0
+        total_pages = max(1, math.ceil(total / limit)) if total > 0 else 1
+        offset = (page - 1) * limit
+
+        paged_ids = list(
+            db.scalars(
+                select(Order.id)
+                .where(Order.id.in_(select(distinct_ids_subq.c.id)))
+                .order_by(Order.created_at.desc(), Order.id.desc())
+                .offset(offset)
+                .limit(limit)
+            ).all()
+        )
+        orders_by_id: dict[int, Order] = {}
+        if paged_ids:
+            loaded = list(
+                db.scalars(
+                    select(Order)
+                    .options(
+                        selectinload(Order.items).selectinload(OrderItem.product),
+                        selectinload(Order.user),
+                        selectinload(Order.shipment),
+                    )
+                    .where(Order.id.in_(paged_ids))
+                ).all()
+            )
+            orders_by_id = {o.id: o for o in loaded}
+
+        can_fulfill = (seller.status or "").strip().lower() == "active"
+        items_out = [
+            OrderService._serialize_seller_order(
+                orders_by_id[oid],
+                seller.id,
+                can_fulfill_store=can_fulfill,
+            )
+            for oid in paged_ids
+            if oid in orders_by_id
+        ]
+        return SellerOrderPaginationResponse(
+            items=items_out,
+            total=total,
+            page=page,
+            limit=limit,
+            total_pages=total_pages,
+        )
+
+    @staticmethod
+    def get_seller_dashboard(
+        db: Session,
+        *,
+        seller: Seller,
+    ) -> SellerDashboardResponse:
+        products = list(
+            db.scalars(
+                select(Product)
+                .where(Product.seller_id == seller.id)
+                .order_by(Product.stock.asc(), Product.id.asc())
+            ).all()
+        )
+        total_products = len(products)
+        active_products = sum(1 for p in products if p.is_active)
+        low_stock_products = [p for p in products if p.is_active and 0 < p.stock < 10]
+        out_of_stock_products = [p for p in products if p.stock <= 0]
+
+        seller_order_ids = select(OrderItem.order_id).join(
+            Product, Product.id == OrderItem.product_id
+        ).where(Product.seller_id == seller.id).distinct()
+
+        orders = list(
+            db.scalars(
+                select(Order)
+                .options(
+                    selectinload(Order.items).selectinload(OrderItem.product),
+                    selectinload(Order.user),
+                    selectinload(Order.shipment),
+                )
+                .where(Order.id.in_(seller_order_ids))
+                .order_by(Order.created_at.desc(), Order.id.desc())
+            ).all()
+        )
+
+        status_counts = {
+            "pending": 0,
+            "processing": 0,
+            "shipped": 0,
+            "delivered": 0,
+            "cancelled": 0,
+        }
+        gross_revenue = Decimal("0.00")
+        can_fulfill = (seller.status or "").strip().lower() == "active"
+        recent_orders: list[SellerOrderResponse] = []
+
+        for idx, order in enumerate(orders):
+            st = (order.status or "pending").strip().lower()
+            if st in status_counts:
+                status_counts[st] += 1
+            if st != "cancelled":
+                for item in order.items:
+                    if item.product is not None and item.product.seller_id == seller.id:
+                        gross_revenue += Decimal(item.subtotal)
+            if idx < 5:
+                recent_orders.append(
+                    OrderService._serialize_seller_order(
+                        order,
+                        seller.id,
+                        can_fulfill_store=can_fulfill,
+                    )
+                )
+
+        return SellerDashboardResponse(
+            seller_id=seller.id,
+            store_name=seller.name,
+            store_status=seller.status,
+            rating=Decimal(str(seller.rating or "5.00")).quantize(Decimal("0.01")),
+            total_products=total_products,
+            active_products=active_products,
+            low_stock_products_count=len(low_stock_products),
+            out_of_stock_products_count=len(out_of_stock_products),
+            total_orders=len(orders),
+            pending_orders=status_counts["pending"],
+            processing_orders=status_counts["processing"],
+            shipped_orders=status_counts["shipped"],
+            delivered_orders=status_counts["delivered"],
+            cancelled_orders=status_counts["cancelled"],
+            gross_revenue=gross_revenue.quantize(Decimal("0.01")),
+            recent_orders=recent_orders,
+            low_stock_items=[
+                SellerDashboardLowStockProduct.model_validate(p)
+                for p in (out_of_stock_products + low_stock_products)[:5]
+            ],
+        )
 
     @staticmethod
     def update_order_status(
@@ -623,10 +907,25 @@ class OrderService:
                             for item in order.items
                             if item.product_id is not None
                         ],
+                        entry_type="order_cancellation",
+                        reference_type="order",
+                        reference_id=order.id,
+                        reason=clean_reason or f"Order #{order.id} cancelled",
+                        actor_user_id=actor.id if actor else None,
                     )
                     if order.coupon_code:
                         from app.services.coupon_service import CouponService
-                        CouponService.restore_coupon_usage(db, order.coupon_code)
+                        CouponService.restore_coupon_usage(
+                            db, order.coupon_code, order_id=order.id
+                        )
+
+                ShipmentService.record_status_event(
+                    db,
+                    order,
+                    target_status,
+                    actor,
+                    note=clean_reason or None,
+                )
 
                 status_titles = {
                     "processing": f"Order #{order.id} is Processing ⚙️",
@@ -666,6 +965,32 @@ class OrderService:
                         ),
                     )
                 order.payment_status = target_payment
+                if target_payment == "paid":
+                    for tx in db.scalars(
+                        select(PaymentTransaction).where(
+                            PaymentTransaction.order_id == order.id,
+                            PaymentTransaction.status.in_(["pending", "requires_action"]),
+                        )
+                    ).all():
+                        tx.status = "captured"
+                elif target_payment == "failed":
+                    for tx in db.scalars(
+                        select(PaymentTransaction).where(
+                            PaymentTransaction.order_id == order.id,
+                            PaymentTransaction.status.in_(["pending", "requires_action"]),
+                        )
+                    ).all():
+                        tx.status = "failed"
+                        if clean_reason:
+                            tx.failure_reason = clean_reason
+                elif target_payment == "refunded":
+                    RefundService.record_order_refund_inline(
+                        db,
+                        order=order,
+                        actor=actor,
+                        reason=clean_reason or f"Order #{order.id} payment refunded",
+                    )
+
                 actor_label = f"Admin #{actor.id} ({actor.email})" if actor else "System"
                 audit_suffix = f" Reason: {clean_reason}" if clean_reason else ""
                 db.add(
@@ -694,6 +1019,7 @@ class OrderService:
             .options(
                 selectinload(Order.items),
                 selectinload(Order.user),
+                selectinload(Order.shipment),
             )
             .where(Order.id == order.id)
         )
@@ -814,12 +1140,30 @@ class OrderService:
                 if item.product_id is not None
             ]
             if items_to_restore:
-                InventoryService.restore_stock(db, items_to_restore)
+                InventoryService.restore_stock(
+                    db,
+                    items_to_restore,
+                    entry_type="order_cancellation",
+                    reference_type="order",
+                    reference_id=order.id,
+                    reason=(reason or "").strip() or f"Order #{order.id} cancelled & archived",
+                    actor_user_id=actor.id if actor else None,
+                )
 
             # Conditional coupon usage restoration
             if order.coupon_code:
                 from app.services.coupon_service import CouponService
-                CouponService.restore_coupon_usage(db, order.coupon_code)
+                CouponService.restore_coupon_usage(
+                    db, order.coupon_code, order_id=order.id
+                )
+
+            ShipmentService.record_status_event(
+                db,
+                order,
+                "cancelled",
+                actor,
+                note=(reason or "").strip() or None,
+            )
 
             # Audit notification preserving administrative history
             actor_label = f"Admin #{actor.id} ({actor.email})" if actor else "System"
@@ -864,6 +1208,7 @@ class OrderService:
             .options(
                 selectinload(Order.items),
                 selectinload(Order.user),
+                selectinload(Order.shipment),
             )
             .where(Order.id == order.id)
         )

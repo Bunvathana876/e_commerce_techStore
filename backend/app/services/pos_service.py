@@ -15,6 +15,7 @@ from app.schemas.pos import (
     PosSummaryResponse,
 )
 from app.services.inventory_service import InventoryService
+from app.services.payment_service import PaymentService
 
 TWOPLACES = Decimal("0.01")
 ZERO = Decimal("0.00")
@@ -22,15 +23,12 @@ MAX_MONEY = Decimal("99999999.99")
 
 CASH_POS_METHODS = {"cash"}
 COD_METHODS = {"cash on delivery", "cod", "cash on delivery (cod)"}
-UNVERIFIED_NON_CASH_POS_METHODS = {
+UNVERIFIED_CARD_POS_METHODS = {
     "credit card",
     "debit card",
     "card",
     "credit / debit card",
-    "qr pay",
-    "khqr",
-    "aba khqr",
-    "khqr scan & pay",
+    "credit/debit card",
 }
 
 
@@ -103,7 +101,7 @@ class PosService:
                 )
             return "Cash on Delivery", "pending", "pending", ZERO, ZERO
 
-        if method_key in UNVERIFIED_NON_CASH_POS_METHODS:
+        if method_key in UNVERIFIED_CARD_POS_METHODS:
             if amount_paid_in != ZERO and amount_paid_in != final_total:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -112,12 +110,15 @@ class PosService:
                         f"server total (${final_total:.2f})."
                     ),
                 )
-            # Non-cash methods are not gateway-verified; never mark them paid automatically.
-            return method_clean, "pending", "pending", ZERO, ZERO
+            # Card terminal capture is not verified synchronously here; never mark paid automatically.
+            return "Credit / Debit Card", "pending", "pending", ZERO, ZERO
 
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported POS payment method '{method_clean}'.",
+            detail=(
+                f"Unsupported POS payment method '{method_clean}'. "
+                "Supported POS payment methods are Cash, Credit / Debit Card, and Cash on Delivery."
+            ),
         )
 
     @staticmethod
@@ -239,7 +240,10 @@ class PosService:
             )
 
             # 4. Atomically deduct stock in deterministic product_id order (raises 409 on conflict)
-            updated_products = InventoryService.deduct_stock(db, ordered_requirements)
+            ledger_lines: list[dict] = []
+            updated_products = InventoryService.deduct_stock(
+                db, ordered_requirements, ledger_out=ledger_lines
+            )
 
             order_items_to_create: list[OrderItem] = []
             receipt_items: list[PosReceiptItem] = []
@@ -303,6 +307,28 @@ class PosService:
 
             db.add(order)
             db.flush()
+
+            InventoryService.record_deduction_journal(
+                db,
+                ledger_lines,
+                entry_type="order_sale",
+                reference_type="order",
+                reference_id=order.id,
+                reason=f"POS checkout Order #{order.id}",
+                actor_user_id=cashier.id,
+            )
+
+            pos_provider = (
+                "cash_register"
+                if canonical_method == "Cash"
+                else ("cod" if canonical_method == "Cash on Delivery" else "card_terminal")
+            )
+            PaymentService.create_transaction_for_order(
+                db,
+                order=order,
+                provider=pos_provider,
+                status_val="captured" if payment_status == "paid" else "pending",
+            )
 
             for item in order_items_to_create:
                 item.order_id = order.id

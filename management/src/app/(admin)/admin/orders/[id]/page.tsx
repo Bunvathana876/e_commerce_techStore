@@ -21,7 +21,7 @@ import {
   ShieldCheck,
   Calendar,
 } from "lucide-react";
-import { ordersApi, ApiOrder } from "@/lib/api";
+import { ordersApi, ApiOrder, type ApiOrderTracking } from "@/lib/api";
 
 const STEPS = [
   { key: "pending", label: "Pending", icon: Clock },
@@ -43,6 +43,16 @@ export default function OrderDetailPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
+  // Shipment & tracking state
+  const [tracking, setTracking] = useState<ApiOrderTracking | null>(null);
+  const [carrier, setCarrier] = useState("Blue Panda Express");
+  const [trackingNumber, setTrackingNumber] = useState("");
+  const [trackingUrl, setTrackingUrl] = useState("");
+  const [shipmentStatus, setShipmentStatus] = useState("in_transit");
+  const [trackingLocation, setTrackingLocation] = useState("");
+  const [trackingNote, setTrackingNote] = useState("");
+  const [savingTracking, setSavingTracking] = useState(false);
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
@@ -58,8 +68,26 @@ export default function OrderDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await ordersApi.get(orderId);
-      setOrder(res.data);
+      const [orderRes, trackingRes] = await Promise.allSettled([
+        ordersApi.get(orderId),
+        ordersApi.getTracking(orderId),
+      ]);
+      if (orderRes.status === "fulfilled") {
+        setOrder(orderRes.value.data);
+      } else {
+        throw orderRes.reason;
+      }
+      if (trackingRes.status === "fulfilled" && trackingRes.value.success && trackingRes.value.data) {
+        const td = trackingRes.value.data;
+        setTracking(td);
+        if (td.shipment) {
+          setCarrier(td.shipment.carrier || "Blue Panda Express");
+          setTrackingNumber(td.shipment.tracking_number || "");
+          setTrackingUrl(td.shipment.tracking_url || "");
+          setShipmentStatus(td.shipment.status || "in_transit");
+          setTrackingNote(td.shipment.notes || "");
+        }
+      }
     } catch (err: any) {
       console.error("Failed to fetch order:", err);
       setError(err.message || "Order not found in database");
@@ -101,6 +129,31 @@ export default function OrderDetailPage() {
     } catch (err: any) {
       showToast(err.message || "Failed to delete order");
       setDeleteModalOpen(false);
+    }
+  };
+
+  const handleSaveTracking = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!order) return;
+    setSavingTracking(true);
+    try {
+      const res = await ordersApi.updateTracking(order.id, {
+        carrier: carrier.trim(),
+        tracking_number: trackingNumber.trim() || null,
+        tracking_url: trackingUrl.trim() || null,
+        status: shipmentStatus,
+        location: trackingLocation.trim() || null,
+        event_description: trackingNote.trim() || null,
+        notes: trackingNote.trim() || null,
+      });
+      if (res.success && res.data) {
+        setTracking(res.data);
+        showToast("Shipment tracking saved to PostgreSQL");
+      }
+    } catch (err: any) {
+      showToast(err.message || "Failed to save shipment tracking");
+    } finally {
+      setSavingTracking(false);
     }
   };
 
@@ -521,6 +574,142 @@ export default function OrderDetailPage() {
                 </span>
               </div>
             </div>
+          </div>
+
+          {/* Shipment & Tracking Management */}
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+            <div className="flex items-center gap-2 text-gray-900 font-bold border-b border-gray-100 pb-3">
+              <Truck size={18} className="text-[#7699F0]" />
+              <span>Shipment & Tracking</span>
+            </div>
+
+            <form onSubmit={handleSaveTracking} className="space-y-3 text-xs">
+              <div>
+                <label htmlFor="admin-track-carrier" className="block font-semibold text-gray-600 mb-1">
+                  Carrier
+                </label>
+                <input
+                  id="admin-track-carrier"
+                  name="carrier"
+                  type="text"
+                  required
+                  value={carrier}
+                  onChange={(e) => setCarrier(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-gray-800"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="admin-track-number" className="block font-semibold text-gray-600 mb-1">
+                  Tracking Number
+                </label>
+                <input
+                  id="admin-track-number"
+                  name="tracking_number"
+                  type="text"
+                  value={trackingNumber}
+                  onChange={(e) => setTrackingNumber(e.target.value)}
+                  placeholder="e.g. BPX-100042"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-gray-800"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="admin-track-status" className="block font-semibold text-gray-600 mb-1">
+                  Shipment Status
+                </label>
+                <select
+                  id="admin-track-status"
+                  name="status"
+                  value={shipmentStatus}
+                  onChange={(e) => setShipmentStatus(e.target.value)}
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-gray-800"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="label_created">Label Created</option>
+                  <option value="picked_up">Picked Up</option>
+                  <option value="in_transit">In Transit</option>
+                  <option value="out_for_delivery">Out for Delivery</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="exception">Exception</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="admin-track-url" className="block font-semibold text-gray-600 mb-1">
+                  Tracking URL (Optional)
+                </label>
+                <input
+                  id="admin-track-url"
+                  name="tracking_url"
+                  type="url"
+                  value={trackingUrl}
+                  onChange={(e) => setTrackingUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-gray-800"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="admin-track-location" className="block font-semibold text-gray-600 mb-1">
+                  Current Checkpoint Location
+                </label>
+                <input
+                  id="admin-track-location"
+                  name="location"
+                  type="text"
+                  value={trackingLocation}
+                  onChange={(e) => setTrackingLocation(e.target.value)}
+                  placeholder="Phnom Penh Hub"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-gray-800"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="admin-track-note" className="block font-semibold text-gray-600 mb-1">
+                  Tracking Note
+                </label>
+                <input
+                  id="admin-track-note"
+                  name="notes"
+                  type="text"
+                  value={trackingNote}
+                  onChange={(e) => setTrackingNote(e.target.value)}
+                  placeholder="Checkpoint update description"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-gray-800"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={savingTracking}
+                className="w-full py-2.5 rounded-xl bg-[#7699F0] hover:bg-blue-600 disabled:opacity-50 text-white font-semibold transition"
+              >
+                {savingTracking ? "Saving Tracking…" : "Save Shipment Tracking"}
+              </button>
+            </form>
+
+            {tracking && tracking.events.length > 0 && (
+              <div className="pt-3 border-t border-gray-100 space-y-2">
+                <p className="text-[11px] font-bold uppercase text-gray-400">
+                  Timeline ({tracking.events.length})
+                </p>
+                <ul className="space-y-1.5 text-xs max-h-40 overflow-y-auto">
+                  {tracking.events.map((ev, idx) => (
+                    <li key={ev.id ?? idx} className="bg-gray-50 rounded-lg p-2">
+                      <div className="flex justify-between gap-2 font-semibold text-gray-800">
+                        <span>{ev.title}</span>
+                        <span className="text-gray-400 font-normal">
+                          {new Date(ev.occurred_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                      {ev.description && <p className="text-gray-500 mt-0.5">{ev.description}</p>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         </div>
       </div>

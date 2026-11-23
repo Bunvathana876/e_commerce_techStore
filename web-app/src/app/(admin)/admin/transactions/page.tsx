@@ -54,7 +54,7 @@ export default function TransactionsPage() {
       id: `TXN-${order.id.toString().padStart(4, "0")}`,
       rawId: order.id,
       type: "Payment",
-      description: `Order #${order.id} payment (${order.payment_method || "ABA Bank"})`,
+      description: `Order #${order.id} payment (${order.payment_method || "Cash on Delivery"})`,
       reference: `ORD-${order.id}`,
       amount: amount,
       direction: "in",

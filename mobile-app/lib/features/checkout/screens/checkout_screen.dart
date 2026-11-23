@@ -6,6 +6,7 @@ import '../../../core/utils/page_transitions.dart';
 import '../../../shared/widgets/bouncing_button.dart';
 import '../../cart/providers/cart_provider.dart';
 import '../providers/checkout_provider.dart';
+import '../services/stripe_payment_gateway.dart';
 import '../widgets/checkout_address_section.dart';
 import '../../orders/providers/order_provider.dart';
 import '../../orders/services/order_api_service.dart';
@@ -20,8 +21,13 @@ import 'order_success_screen.dart';
 /// 5. Price Breakdown & Secure Place Order Action
 class CheckoutScreen extends StatefulWidget {
   final OrderApiService? orderApiService;
+  final StripePaymentGateway? stripePaymentGateway;
 
-  const CheckoutScreen({super.key, this.orderApiService});
+  const CheckoutScreen({
+    super.key,
+    this.orderApiService,
+    this.stripePaymentGateway,
+  });
 
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
@@ -31,29 +37,23 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   late final OrderApiService _orderApiService;
   late final CheckoutProvider _checkout;
 
-  // Selected Payment Method: 0 = ABA KHQR (Demo), 1 = Card (Demo), 2 = COD
-  int _selectedPaymentIndex = 2;
-  final List<Map<String, dynamic>> _paymentMethods = const [
-    {
-      'name': 'ABA / KHQR Pay',
-      'subtitle': 'Demo preview — payment remains pending until verified',
-      'icon': Icons.qr_code_scanner_rounded,
-      'color': Color(0xFF005A9C),
-      'isDemo': true,
-    },
-    {
-      'name': 'Credit / Debit Card',
-      'subtitle': 'Demo preview — online card gateway not integrated',
-      'icon': Icons.credit_card_rounded,
-      'color': Color(0xFF2563EB),
-      'isDemo': true,
-    },
+  // Selected Payment Method: 0 = Cash on Delivery (COD), 1 = Credit / Debit Card
+  int _selectedPaymentIndex = 0;
+
+  List<Map<String, dynamic>> get _paymentMethods => [
     {
       'name': 'Cash on Delivery (COD)',
       'subtitle': 'Pay cash when package arrives',
       'icon': Icons.payments_outlined,
-      'color': Color(0xFF10B981),
-      'isDemo': false,
+      'color': const Color(0xFF10B981),
+    },
+    {
+      'name': 'Credit / Debit Card',
+      'subtitle': !_checkout.cardGatewayChecked || _checkout.cardGatewayConfigured
+          ? 'Visa, Mastercard & verified Stripe card payment'
+          : 'Card payments are currently disabled on server',
+      'icon': Icons.credit_card_rounded,
+      'color': const Color(0xFF2563EB),
     },
   ];
 
@@ -63,7 +63,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   void initState() {
     super.initState();
     _orderApiService = widget.orderApiService ?? OrderApiService();
-    _checkout = CheckoutProvider(orders: _orderApiService);
+    _checkout = CheckoutProvider(
+      orders: _orderApiService,
+      stripeGateway: widget.stripePaymentGateway,
+    );
     _checkout.addListener(_refreshCheckout);
     _checkout.load();
   }
@@ -160,182 +163,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     } finally {
       if (mounted) setState(() => _isPlacingOrder = false);
     }
-  }
-
-  void _showKhqrModal(BuildContext context, double totalAmount) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: isDark ? const Color(0xFF161F30) : Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Top drag indicator
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: isDark
-                      ? const Color(0xFF475569)
-                      : Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Demo KHQR header bar
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD97706),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.info_outline_rounded,
-                      color: Colors.white,
-                      size: 20,
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'DEMO KHQR PREVIEW • UNVERIFIED',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 12.5,
-                        letterSpacing: 0.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              Text(
-                'Blue Panda Official Store (Demo)',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: isDark ? Colors.white : const Color(0xFF0F172A),
-                ),
-              ),
-              const SizedBox(height: 4),
-
-              Text(
-                '\$${totalAmount.toStringAsFixed(2)}',
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF2563EB),
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // QR Code Graphic container
-              Container(
-                width: 200,
-                height: 200,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: const Color(0xFFE2E8F0), width: 2),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      blurRadius: 16,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Corner positioning brackets
-                    Positioned.fill(
-                      child: CustomPaint(painter: _KhqrQrPatternPainter()),
-                    ),
-                    // Centered Store Badge
-                    Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2563EB),
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 3),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.15),
-                            blurRadius: 6,
-                          ),
-                        ],
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.shopping_bag_rounded,
-                          color: Colors.white,
-                          size: 22,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-
-              Text(
-                'Online KHQR verification is not integrated yet. Scanning this demo QR does not process or confirm a payment.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 12,
-                  height: 1.4,
-                  fontWeight: FontWeight.w600,
-                  color: isDark
-                      ? const Color(0xFFCBD5E1)
-                      : const Color(0xFF475569),
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              BouncingButton(
-                key: const Key('close_khqr_preview'),
-                onTap: () => Navigator.pop(ctx),
-                child: Container(
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2563EB),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  alignment: Alignment.center,
-                  child: const Text(
-                    'Close Preview',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   @override
@@ -756,9 +583,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     required CartProvider cartProvider,
     required double finalGrandTotal,
   }) {
+    final methods = _paymentMethods;
     return Column(
-      children: List.generate(_paymentMethods.length, (index) {
-        final pay = _paymentMethods[index];
+      children: List.generate(methods.length, (index) {
+        final pay = methods[index];
         final isSelected = _selectedPaymentIndex == index;
 
         return Padding(
@@ -845,29 +673,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                                     ),
                                   ),
                                 ),
-                                if (pay['isDemo'] == true) ...[
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 6,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(
-                                        0xFFD97706,
-                                      ).withValues(alpha: isDark ? 0.25 : 0.12),
-                                      borderRadius: BorderRadius.circular(6),
-                                    ),
-                                    child: const Text(
-                                      'DEMO',
-                                      style: TextStyle(
-                                        fontSize: 9.5,
-                                        fontWeight: FontWeight.w800,
-                                        color: Color(0xFFD97706),
-                                      ),
-                                    ),
-                                  ),
-                                ],
                               ],
                             ),
                             const SizedBox(height: 2),
@@ -887,78 +692,6 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   ),
                 ),
               ),
-              if (index == 0 && isSelected) ...[
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(
-                      0xFF005A9C,
-                    ).withValues(alpha: isDark ? 0.22 : 0.08),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: const Color(0xFF005A9C).withValues(alpha: 0.25),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.qr_code_2_rounded,
-                        size: 22,
-                        color: Color(0xFF005A9C),
-                      ),
-                      const SizedBox(width: 10),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'KHQR Demo Preview (Unverified)',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF005A9C),
-                              ),
-                            ),
-                            Text(
-                              'Online payment verification is not integrated yet',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Color(0xFF64748B),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      BouncingButton(
-                        key: const Key('open_khqr_modal_button'),
-                        onTap: () => _showKhqrModal(context, finalGrandTotal),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF005A9C),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Text(
-                            'Preview QR',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
             ],
           ),
         );
@@ -1174,48 +907,4 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       ],
     );
   }
-}
-
-/// Custom painter rendering high-contrast Cambodian Bakong KHQR pattern
-class _KhqrQrPatternPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFF0F172A)
-      ..style = PaintingStyle.fill;
-
-    // Corner finder patterns (Standard ISO QR position marks)
-    void drawFinder(double x, double y) {
-      canvas.drawRect(Rect.fromLTWH(x, y, 36, 36), paint);
-      canvas.drawRect(
-        Rect.fromLTWH(x + 5, y + 5, 26, 26),
-        Paint()..color = Colors.white,
-      );
-      canvas.drawRect(Rect.fromLTWH(x + 10, y + 10, 16, 16), paint);
-    }
-
-    drawFinder(4, 4);
-    drawFinder(size.width - 40, 4);
-    drawFinder(4, size.height - 40);
-
-    // Simulated authentic QR data modules
-    final dotPaint = Paint()..color = const Color(0xFF1E293B);
-    const step = 8.0;
-    for (double x = 46; x < size.width - 46; x += step) {
-      for (double y = 4; y < size.height; y += step) {
-        if ((x.toInt() * 7 + y.toInt() * 13) % 5 == 0) {
-          canvas.drawRRect(
-            RRect.fromRectAndRadius(
-              Rect.fromLTWH(x, y, 5, 5),
-              const Radius.circular(1.5),
-            ),
-            dotPaint,
-          );
-        }
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

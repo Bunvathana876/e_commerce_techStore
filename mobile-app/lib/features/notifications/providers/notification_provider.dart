@@ -118,21 +118,33 @@ class NotificationProvider extends ChangeNotifier {
       final fetched = await _apiService.getNotifications();
       if (requestEpoch != _sessionEpoch) return;
 
-      if (_hasCleared) {
-        _notifications = [];
-        _unreadCount = 0;
-      } else if (fetched != null) {
-        // Connected to remote backend successfully
-        _notifications = fetched
+      if (fetched != null) {
+        final visible = fetched
             .where((n) => !_deletedIds.contains(n.id))
             .toList();
-        _unreadCount = _notifications.where((n) => n.isUnread).length;
+        // Reset the local clear flag whenever fresh server notifications arrive
+        if (visible.isNotEmpty && _hasCleared) {
+          _hasCleared = false;
+          try {
+            final prefs = _prefs ?? await SharedPreferences.getInstance();
+            await prefs.setBool('notifications_has_cleared', false);
+          } catch (_) {}
+        }
 
-        // Sync exact unread count from backend
-        final count = await _apiService.getUnreadCount();
-        if (requestEpoch != _sessionEpoch) return;
-        if (count > 0 || _unreadCount == 0) {
-          _unreadCount = count;
+        if (_hasCleared) {
+          _notifications = [];
+          _unreadCount = 0;
+        } else {
+          // Connected to remote backend successfully
+          _notifications = visible;
+          _unreadCount = _notifications.where((n) => n.isUnread).length;
+
+          // Sync exact unread count from backend
+          final count = await _apiService.getUnreadCount();
+          if (requestEpoch != _sessionEpoch) return;
+          if (count > 0 || _unreadCount == 0) {
+            _unreadCount = count;
+          }
         }
       }
     } catch (e) {

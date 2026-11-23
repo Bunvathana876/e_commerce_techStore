@@ -24,7 +24,8 @@ from alembic.config import Config
 
 
 ALEMBIC_INI_PATH = Path(__file__).resolve().parent.parent / "alembic.ini"
-REVISION_HEAD = "e1f2a3b4c5d6"
+REVISION_HEAD = "g3b4c5d6e7f8"
+REVISION_PHASE2 = "f2a3b4c5d6e7"
 REVISION_IDEMPOTENCY = "e1f2a3b4c5d6"
 REVISION_LEGACY_REVOCATION = "d7e8f9012abc"
 REVISION_SESSIONS = "a1b2c3d4e5f6"
@@ -111,7 +112,15 @@ def test_1_fresh_database_migration():
             "sellers", "coupons", "notifications", "reviews",
             "user_sessions", "refresh_tokens",
             "idempotency_records",
-            "alembic_version"
+            "password_reset_tokens", "payment_transactions",
+            "suppliers", "warehouses", "warehouse_stocks",
+            "inventory_journal_entries", "inventory_ledger_lines",
+            "purchase_orders", "purchase_order_items",
+            "warehouse_transfers", "warehouse_transfer_items",
+            "refunds", "refund_ledger_entries",
+            "coupon_redemptions", "store_settings",
+            "order_shipments", "order_tracking_events",
+            "alembic_version",
         }
         assert tables_head == expected_tables
 
@@ -444,6 +453,22 @@ def test_12_downgrade_behavior():
         assert "coupons" not in tables
         assert "notifications" not in tables
         assert "reviews" not in tables
+        for added_tbl in (
+            "password_reset_tokens",
+            "payment_transactions",
+            "suppliers",
+            "warehouses",
+            "warehouse_stocks",
+            "inventory_journal_entries",
+            "inventory_ledger_lines",
+            "purchase_orders",
+            "purchase_order_items",
+            "warehouse_transfers",
+            "warehouse_transfer_items",
+            "refunds",
+            "refund_ledger_entries",
+        ):
+            assert added_tbl not in tables
 
         order_cols = {c["name"] for c in inspector.get_columns("orders")}
         assert "discount_amount" not in order_cols
@@ -757,3 +782,166 @@ def test_16_idempotency_records_migration_and_constraints():
         command.upgrade(cfg, "head")
         inspector_up = sa.inspect(disp.engine)
         assert "idempotency_records" in set(inspector_up.get_table_names())
+
+
+def test_17_payments_recovery_inventory_suppliers_refunds_migration_and_immutability():
+    """Verify 13 new tables, zero schema drift, downgrade/upgrade, and PG ledger immutability triggers."""
+    from alembic.migration import MigrationContext
+    from alembic.autogenerate import compare_metadata
+    from app.db.database import Base
+    import app.models  # noqa: F401
+
+    new_tables = (
+        "password_reset_tokens",
+        "payment_transactions",
+        "suppliers",
+        "warehouses",
+        "warehouse_stocks",
+        "inventory_journal_entries",
+        "inventory_ledger_lines",
+        "purchase_orders",
+        "purchase_order_items",
+        "warehouse_transfers",
+        "warehouse_transfer_items",
+        "refunds",
+        "refund_ledger_entries",
+    )
+
+    with DisposablePostgresDB("test_phase2_features_") as disp:
+        cfg = disp.get_alembic_config()
+        command.upgrade(cfg, "head")
+
+        inspector = sa.inspect(disp.engine)
+        tables = set(inspector.get_table_names())
+        for table_name in new_tables:
+            assert table_name in tables, f"Missing migrated table {table_name}"
+
+        # Zero Alembic metadata drift across all new tables
+        with disp.engine.connect() as conn:
+            ctx = MigrationContext.configure(conn)
+            diff = compare_metadata(ctx, Base.metadata)
+            new_table_diffs = [
+                d
+                for d in diff
+                if any(t in str(d) for t in new_tables)
+            ]
+            assert len(new_table_diffs) == 0, f"Schema drift detected: {new_table_diffs}"
+
+        # Seed valid baseline + immutable ledger records
+        with disp.engine.begin() as conn:
+            conn.execute(sa.text("""
+                INSERT INTO users (id, name, email, password_hash, role, is_active)
+                VALUES (1, 'Admin', 'admin@test.com', 'hash', 'admin', true)
+            """))
+            conn.execute(sa.text("""
+                INSERT INTO categories (id, name, is_active)
+                VALUES (1, 'Electronics', true)
+            """))
+            conn.execute(sa.text("""
+                INSERT INTO products (id, category_id, name, price, stock, rating, is_active)
+                VALUES (1, 1, 'Router', 50.00, 10, 0.00, true)
+            """))
+            conn.execute(sa.text("""
+                INSERT INTO orders (id, user_id, status, subtotal, shipping_fee, total, payment_method, payment_status, shipping_address)
+                VALUES (501, 1, 'delivered', 50.00, 0.00, 50.00, 'Cash on Delivery', 'paid', 'Phnom Penh')
+            """))
+            conn.execute(sa.text("""
+                INSERT INTO warehouses (id, code, name, is_default, is_active)
+                VALUES (1, 'WH-MAIN', 'Main Warehouse', true, true)
+            """))
+            conn.execute(sa.text("""
+                INSERT INTO suppliers (id, code, name, contact_name, email)
+                VALUES (1, 'SUP-001', 'Acme Supply', 'Jane Doe', 'jane@acme.test')
+            """))
+            conn.execute(sa.text("""
+                INSERT INTO inventory_journal_entries (id, entry_number, entry_type, reason, created_by_user_id)
+                VALUES (1, 'INV-JRN-0001', 'opening', 'Seed test', 1)
+            """))
+            conn.execute(sa.text("""
+                INSERT INTO inventory_ledger_lines (id, journal_entry_id, product_id, product_name, warehouse_id, account_type, debit_qty, credit_qty, unit_cost, balance_after)
+                VALUES (1, 1, 1, 'Router', 1, 'INVENTORY_ON_HAND', 10, 0, 25.00, 10)
+            """))
+            conn.execute(sa.text("""
+                INSERT INTO refunds (id, refund_number, order_id, customer_id, amount, currency, refund_method, status, reason)
+                VALUES (1, 'REF-0001', 501, 1, 50.00, 'USD', 'Cash on Delivery', 'approved', 'Defective item')
+            """))
+            conn.execute(sa.text("""
+                INSERT INTO refund_ledger_entries (id, journal_ref, refund_id, order_id, entry_type, account_code, account_name, debit_amount, credit_amount, currency)
+                VALUES (1, 'REF-GL-0001', 1, 501, 'accrual', '4100', 'Sales Returns & Refunds', 50.00, 0.00, 'USD')
+            """))
+
+        # PostgreSQL triggers must block UPDATE & DELETE on all 3 immutable ledger tables
+        for stmt in (
+            "UPDATE inventory_journal_entries SET reason = 'Tampered' WHERE id = 1",
+            "DELETE FROM inventory_journal_entries WHERE id = 1",
+            "UPDATE inventory_ledger_lines SET debit_qty = 999 WHERE id = 1",
+            "DELETE FROM inventory_ledger_lines WHERE id = 1",
+            "UPDATE refund_ledger_entries SET debit_amount = 999.00 WHERE id = 1",
+            "DELETE FROM refund_ledger_entries WHERE id = 1",
+        ):
+            with pytest.raises(Exception):
+                with disp.engine.begin() as conn:
+                    conn.execute(sa.text(stmt))
+
+        # Downgrade one step to REVISION_IDEMPOTENCY drops all 13 tables cleanly
+        command.downgrade(cfg, REVISION_IDEMPOTENCY)
+        inspector_down = sa.inspect(disp.engine)
+        down_tables = set(inspector_down.get_table_names())
+        for table_name in new_tables:
+            assert table_name not in down_tables, f"{table_name} still present after downgrade"
+        assert "idempotency_records" in down_tables
+
+        # Re-upgrade to head restores everything cleanly
+        command.upgrade(cfg, "head")
+        inspector_up = sa.inspect(disp.engine)
+        up_tables = set(inspector_up.get_table_names())
+        for table_name in new_tables:
+            assert table_name in up_tables, f"{table_name} missing after re-upgrade"
+
+
+def test_18_store_settings_shipments_coupon_redemptions_migration():
+    """Verify g3b4c5d6e7f8 tables/columns, zero metadata drift, and clean downgrade/re-upgrade."""
+    from alembic.migration import MigrationContext
+    from alembic.autogenerate import compare_metadata
+    from app.db.database import Base
+    import app.models  # noqa: F401
+
+    phase3_tables = (
+        "coupon_redemptions",
+        "store_settings",
+        "order_shipments",
+        "order_tracking_events",
+    )
+
+    with DisposablePostgresDB("test_phase3_features_") as disp:
+        cfg = disp.get_alembic_config()
+        command.upgrade(cfg, "head")
+
+        inspector = sa.inspect(disp.engine)
+        tables = set(inspector.get_table_names())
+        for table_name in phase3_tables:
+            assert table_name in tables, f"Missing migrated table {table_name}"
+        coupon_cols = {c["name"] for c in inspector.get_columns("coupons")}
+        assert "per_user_limit" in coupon_cols
+
+        with disp.engine.connect() as conn:
+            ctx = MigrationContext.configure(conn)
+            diff = compare_metadata(ctx, Base.metadata)
+            relevant_diffs = [
+                d for d in diff
+                if any(t in str(d) for t in (*phase3_tables, "per_user_limit"))
+            ]
+            assert len(relevant_diffs) == 0, f"Schema drift detected: {relevant_diffs}"
+
+        command.downgrade(cfg, REVISION_PHASE2)
+        inspector_down = sa.inspect(disp.engine)
+        down_tables = set(inspector_down.get_table_names())
+        for table_name in phase3_tables:
+            assert table_name not in down_tables
+        assert "per_user_limit" not in {c["name"] for c in inspector_down.get_columns("coupons")}
+
+        command.upgrade(cfg, "head")
+        inspector_up = sa.inspect(disp.engine)
+        up_tables = set(inspector_up.get_table_names())
+        for table_name in phase3_tables:
+            assert table_name in up_tables

@@ -94,8 +94,8 @@ export default function PaymentDetailPage() {
   const amount = Number(order.total) || 0;
   const fee = amount * 0.01;
   const netAmount = amount - fee;
-  const paymentMethod = order.payment_method || "ABA Bank / KHQR";
-  const transactionId = `ABA-TXN-${order.id.toString().padStart(8, "0")}`;
+  const paymentMethod = order.payment_method || "Cash on Delivery";
+  const transactionId = `PAY-${order.id.toString().padStart(8, "0")}`;
   const dateObj = new Date(order.created_at);
   const formattedDate = !isNaN(dateObj.getTime())
     ? dateObj.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })

@@ -6,14 +6,20 @@ from app.api.v1.routes.cart import router as cart_router
 from app.api.v1.routes.categories import router as category_router
 from app.api.v1.routes.coupons import router as coupon_router
 from app.api.v1.routes.favorites import router as favorite_router
+from app.api.v1.routes.inventory import router as inventory_router
 from app.api.v1.routes.notifications import router as notification_router
 from app.api.v1.routes.orders import router as order_router
+from app.api.v1.routes.payments import router as payment_router
 from app.api.v1.routes.pos import router as pos_router
 from app.api.v1.routes.products import router as product_router
+from app.api.v1.routes.refunds import router as refund_router
+from app.api.v1.routes.reports import router as report_router
 from app.api.v1.routes.reviews import router as review_router
 from app.api.v1.routes.seller import router as seller_self_router
 from app.api.v1.routes.sellers import router as seller_router
+from app.api.v1.routes.settings import router as settings_router
 from app.api.v1.routes.stats import router as stats_router
+from app.api.v1.routes.suppliers import router as supplier_router
 from app.api.v1.routes.upload import router as upload_router
 from app.api.v1.routes.users import router as user_router
 
@@ -26,11 +32,17 @@ all_routers = [
     notification_router,
     address_router,
     order_router,
+    payment_router,
     pos_router,
     coupon_router,
     review_router,
     seller_self_router,
     seller_router,
+    settings_router,
+    supplier_router,
+    inventory_router,
+    refund_router,
+    report_router,
     stats_router,
     user_router,
     upload_router,

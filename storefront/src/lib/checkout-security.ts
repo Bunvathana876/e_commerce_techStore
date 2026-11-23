@@ -1,5 +1,6 @@
 import type {
   ApiAddress,
+  ApiCardPaymentIntent,
   ApiCart,
   ApiCouponValidation,
   ApiOrder,
@@ -12,8 +13,7 @@ export interface CheckoutPaymentMethodMeta {
   id: string;
   title: string;
   subtitle: string;
-  isDemo: boolean;
-  badge: "DEMO" | null;
+  badge: "ACTIVE" | "CARD";
 }
 
 export const CHECKOUT_PAYMENT_METHODS: readonly CheckoutPaymentMethodMeta[] = [
@@ -21,48 +21,59 @@ export const CHECKOUT_PAYMENT_METHODS: readonly CheckoutPaymentMethodMeta[] = [
     id: "Cash on Delivery",
     title: "Cash on Delivery (COD)",
     subtitle: "Pay in cash when your parcel arrives",
-    isDemo: false,
-    badge: null,
-  },
-  {
-    id: "KHQR Scan & Pay",
-    title: "KHQR / Bakong Pay",
-    subtitle: "Demo only — live KHQR verification is not integrated yet",
-    isDemo: true,
-    badge: "DEMO",
+    badge: "ACTIVE",
   },
   {
     id: "Credit / Debit Card",
     title: "Credit or Debit Card",
-    subtitle: "Demo only — live card gateway is not integrated yet",
-    isDemo: true,
-    badge: "DEMO",
-  },
-  {
-    id: "Apple Pay",
-    title: "Apple Pay / Wallet",
-    subtitle: "Demo only — live wallet authorization is not integrated yet",
-    isDemo: true,
-    badge: "DEMO",
+    subtitle: "Pay securely with Visa, Mastercard, or American Express",
+    badge: "CARD",
   },
 ];
 
-const UNVERIFIED_CLIENT_PAYMENT_METHODS = new Set([
+const SUPPORTED_CHECKOUT_METHOD_IDS = new Set([
+  "cash on delivery",
+  "cash on delivery (cod)",
+  "cod",
   "credit / debit card",
   "credit or debit card",
+  "credit/debit card",
+  "credit card",
+  "debit card",
   "card",
+]);
+
+const UNVERIFIED_CLIENT_PAYMENT_METHODS = new Set([
   "khqr scan & pay",
+  "aba / khqr pay",
+  "aba khqr",
   "khqr",
+  "qr pay",
   "apple pay",
 ]);
+
+export function isSupportedCheckoutPaymentMethod(method?: string | null): boolean {
+  const normalized = (method || "").trim().toLowerCase();
+  return SUPPORTED_CHECKOUT_METHOD_IDS.has(normalized);
+}
+
+export function isCardPaymentMethod(method?: string | null): boolean {
+  const normalized = (method || "").trim().toLowerCase();
+  return (
+    normalized === "credit / debit card" ||
+    normalized === "credit or debit card" ||
+    normalized === "credit/debit card" ||
+    normalized === "credit card" ||
+    normalized === "debit card" ||
+    normalized === "card"
+  );
+}
 
 export function isUnverifiedPaymentMethod(method?: string | null): boolean {
   const normalized = (method || "").trim().toLowerCase();
   if (!normalized) return true;
   if (UNVERIFIED_CLIENT_PAYMENT_METHODS.has(normalized)) return true;
-  return CHECKOUT_PAYMENT_METHODS.some(
-    (pm) => pm.id.toLowerCase() === normalized && pm.isDemo
-  );
+  return !SUPPORTED_CHECKOUT_METHOD_IDS.has(normalized);
 }
 
 export function isNetworkTransportError(err: unknown): boolean {
@@ -85,7 +96,8 @@ export function toCheckoutErrorMessage(err: unknown): string {
 
 export function normalizeServerConfirmedOrder(
   response: ApiResponse<ApiOrder> | null | undefined,
-  requestedPaymentMethod: string
+  requestedPaymentMethod: string,
+  options?: { cardGatewayConfigured?: boolean }
 ): ApiOrder {
   if (!response || response.success === false || !response.data) {
     throw new Error(
@@ -103,10 +115,11 @@ export function normalizeServerConfirmedOrder(
     DEFAULT_CHECKOUT_PAYMENT_METHOD;
   const rawPaymentStatus = (raw.payment_status || "pending").trim().toLowerCase();
 
-  // Only the backend can settle COD. Preserve its paid status, including on retries.
-  // Electronic demo methods still have no payment integration.
+  // Only verified COD settlement or verified card gateway settlement can retain "paid".
+  const cardBlocked =
+    isCardPaymentMethod(resolvedMethod) && options?.cardGatewayConfigured !== true;
   const safePaymentStatus =
-    rawPaymentStatus === "paid" && isUnverifiedPaymentMethod(resolvedMethod)
+    rawPaymentStatus === "paid" && (isUnverifiedPaymentMethod(resolvedMethod) || cardBlocked)
       ? "pending"
       : rawPaymentStatus || "pending";
 
@@ -267,6 +280,8 @@ export interface ExecuteCheckoutParams {
     is_default?: boolean;
   };
   paymentMethod: string;
+  cardGatewayConfigured?: boolean;
+  deferCartClearForCardConfirmation?: boolean;
   phone?: string;
   fullName?: string;
   couponCode?: string | null;
@@ -298,13 +313,21 @@ export interface ExecuteCheckoutParams {
       items?: Array<{ product_id: number; quantity: number }>;
       idempotency_key?: string;
     }) => Promise<ApiResponse<ApiOrder>>;
+    createCardIntent?: (
+      orderId: number
+    ) => Promise<ApiResponse<ApiCardPaymentIntent> | unknown>;
     clearClientCart: () => Promise<void>;
   };
 }
 
 export type ExecuteCheckoutResult =
   | { status: "duplicate_blocked" }
-  | { status: "confirmed"; order: ApiOrder };
+  | { status: "confirmed"; order: ApiOrder }
+  | {
+      status: "requires_card_confirmation";
+      order: ApiOrder;
+      cardIntent: ApiCardPaymentIntent;
+    };
 
 export async function executeCheckoutOrder(
   params: ExecuteCheckoutParams
@@ -342,12 +365,18 @@ export async function executeCheckoutOrder(
       );
     }
 
-    const matchedMethod = CHECKOUT_PAYMENT_METHODS.find(
-      (pm) => pm.id.toLowerCase() === params.paymentMethod.trim().toLowerCase()
-    );
-    if (matchedMethod?.isDemo) {
+    if (!isSupportedCheckoutPaymentMethod(params.paymentMethod)) {
       throw new Error(
-        "Live payment gateway capture for this method is not integrated yet. Please select Cash on Delivery (COD) to place your order."
+        `Unsupported payment method '${params.paymentMethod}'. Please choose Credit / Debit Card or Cash on Delivery.`
+      );
+    }
+
+    if (
+      isCardPaymentMethod(params.paymentMethod) &&
+      params.cardGatewayConfigured !== true
+    ) {
+      throw new Error(
+        "Live Credit / Debit Card gateway is not configured on the server yet. Please select Cash on Delivery (COD) to place your order."
       );
     }
 
@@ -390,8 +419,32 @@ export async function executeCheckoutOrder(
 
     const confirmedOrder = normalizeServerConfirmedOrder(
       orderRes,
-      params.paymentMethod
+      params.paymentMethod,
+      { cardGatewayConfigured: params.cardGatewayConfigured }
     );
+
+    if (
+      isCardPaymentMethod(params.paymentMethod) &&
+      params.cardGatewayConfigured === true &&
+      params.deps.createCardIntent
+    ) {
+      const intentRaw = (await params.deps.createCardIntent(
+        confirmedOrder.id
+      )) as ApiResponse<ApiCardPaymentIntent> | undefined;
+      if (params.deferCartClearForCardConfirmation) {
+        const cardIntent = intentRaw?.data;
+        if (!cardIntent?.client_secret || !cardIntent?.payment_intent_id) {
+          throw new Error(
+            "Unable to initialize Stripe card payment session for this order."
+          );
+        }
+        return {
+          status: "requires_card_confirmation",
+          order: confirmedOrder,
+          cardIntent,
+        };
+      }
+    }
 
     // Clear client cart ONLY after confirmed order creation
     await params.deps.clearClientCart();
@@ -401,6 +454,31 @@ export async function executeCheckoutOrder(
   } finally {
     params.lock.release();
   }
+}
+
+export async function completeCardCheckoutConfirmation(params: {
+  order: ApiOrder;
+  paymentIntentId: string;
+  confirmCardPayment: (data: {
+    order_id: number;
+    payment_intent_id: string;
+  }) => Promise<ApiResponse<unknown>>;
+  clearClientCart: () => Promise<void>;
+}): Promise<ApiOrder> {
+  const res = await params.confirmCardPayment({
+    order_id: params.order.id,
+    payment_intent_id: params.paymentIntentId,
+  });
+  if (!res || res.success === false) {
+    throw new Error(
+      res?.message || "Unable to verify card payment with the server."
+    );
+  }
+  await params.clearClientCart();
+  return {
+    ...params.order,
+    payment_status: "paid",
+  };
 }
 
 export interface VerifiedCouponResult {

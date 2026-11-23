@@ -190,8 +190,12 @@ describe("Next.js Storefront Checkout, Order, Payment & Coupon Security", () => 
     assert.equal(createOrderCalls, 1);
   });
 
-  it("4. Unverified payment methods are labeled DEMO and never marked paid", () => {
+  it("4. Supported payment methods are strictly Credit / Debit Card and Cash on Delivery", () => {
     assert.equal(DEFAULT_CHECKOUT_PAYMENT_METHOD, "Cash on Delivery");
+    assert.deepEqual(
+      CHECKOUT_PAYMENT_METHODS.map((m) => m.id),
+      ["Cash on Delivery", "Credit / Debit Card"]
+    );
 
     const codMethod = CHECKOUT_PAYMENT_METHODS.find(
       (m) => m.id === "Cash on Delivery"
@@ -200,32 +204,34 @@ describe("Next.js Storefront Checkout, Order, Payment & Coupon Security", () => 
     assert.equal(codMethod.isDemo, false);
     assert.equal(codMethod.badge, null);
 
-    for (const demoId of [
-      "KHQR Scan & Pay",
-      "Credit / Debit Card",
-      "Apple Pay",
-    ]) {
-      const method = CHECKOUT_PAYMENT_METHODS.find((m) => m.id === demoId);
-      assert.ok(method, `Missing method ${demoId}`);
-      assert.equal(method.isDemo, true);
-      assert.equal(method.badge, "DEMO");
+    const cardMethod = CHECKOUT_PAYMENT_METHODS.find(
+      (m) => m.id === "Credit / Debit Card"
+    );
+    assert.ok(cardMethod);
+    assert.equal(cardMethod.isDemo, false);
+    assert.equal(cardMethod.badge, null);
 
-      // Even if an untrusted payload claimed payment_status="paid", client normalizes to pending
-      const normalized = normalizeServerConfirmedOrder(
+    for (const removedId of ["KHQR Scan & Pay", "Apple Pay"]) {
+      assert.equal(
+        CHECKOUT_PAYMENT_METHODS.some((m) => m.id === removedId),
+        false,
+        `${removedId} must not be offered in checkout`
+      );
+      const normalizedRemoved = normalizeServerConfirmedOrder(
         {
           success: true,
           message: "ok",
           data: buildServerOrder({
             id: 501,
-            payment_method: demoId,
+            payment_method: removedId,
             payment_status: "paid",
           }),
         },
-        demoId
+        removedId
       );
-      assert.equal(normalized.payment_status, "pending");
+      assert.equal(normalizedRemoved.payment_status, "pending");
 
-      const meta = getOrderPaymentPresentation(normalized);
+      const meta = getOrderPaymentPresentation(normalizedRemoved);
       assert.equal(meta.isPaid, false);
       assert.equal(meta.paymentStatusLabel, "Pending Verification");
       assert.equal(meta.totalLabel, "Order Total");

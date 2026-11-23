@@ -1,488 +1,360 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  Save,
-  Edit3,
-  Mail,
-  Phone,
-  Truck,
-  Loader2,
-  AlertCircle,
-  CheckCircle2,
-  Trash2,
-} from "lucide-react";
-import { sellersApi, productsApi, ApiSeller, ApiProduct } from "@/lib/api";
+import { useParams } from "next/navigation";
+import { AlertCircle, ArrowLeft, CheckCircle2, ClipboardList, Save } from "lucide-react";
+import { suppliersApi, type ApiSupplier } from "@/lib/api";
 
 export default function SupplierDetailPage() {
-  const params = useParams();
-  const router = useRouter();
-  const id = params.id as string;
-  const supplierId = Number(id);
+  const params = useParams<{ id: string }>();
+  const supplierId = Number(params?.id);
 
-  const [supplier, setSupplier] = useState<ApiSeller | null>(null);
-  const [products, setProducts] = useState<ApiProduct[]>([]);
+  const [supplier, setSupplier] = useState<ApiSupplier | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [notification, setNotification] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [savedMsg, setSavedMsg] = useState<string | null>(null);
 
   const [form, setForm] = useState({
+    code: "",
     name: "",
-    owner_name: "",
+    contact_name: "",
     email: "",
     phone: "",
     address: "",
-    description: "",
+    city: "",
+    country: "",
+    tax_id: "",
+    payment_terms: "Net 30",
+    lead_time_days: 7,
     status: "Active",
+    notes: "",
   });
 
-  const loadData = useCallback(async () => {
-    if (isNaN(supplierId)) {
-      setNotification({ type: "error", text: "Invalid Supplier ID format." });
-      setLoading(false);
-      return;
-    }
-
+  const loadSupplier = useCallback(async () => {
+    if (!Number.isFinite(supplierId) || supplierId <= 0) return;
     setLoading(true);
+    setError(null);
     try {
-      const [supRes, prodRes] = await Promise.all([
-        sellersApi.get(supplierId),
-        productsApi.list(),
-      ]);
-
-      if (supRes.success && supRes.data) {
-        const s = supRes.data;
-        setSupplier(s);
-        setForm({
-          name: s.name || "",
-          owner_name: s.owner_name || "",
-          email: s.email || "",
-          phone: s.phone || "",
-          address: s.address || "",
-          description: s.description || "",
-          status: s.status || "Active",
-        });
-      } else {
-        setNotification({
-          type: "error",
-          text: supRes.message || "Supplier not found.",
-        });
-      }
-
-      if (prodRes.success && prodRes.data) {
-        const supplied = prodRes.data.items.filter((p: ApiProduct) => p.seller_id === supplierId);
-        setProducts(supplied);
-      }
-    } catch (err: any) {
-      setNotification({
-        type: "error",
-        text: err.message || "Failed to load supplier details from PostgreSQL.",
+      const res = await suppliersApi.getById(supplierId);
+      const s = res.data;
+      setSupplier(s);
+      setForm({
+        code: s.code,
+        name: s.name,
+        contact_name: s.contact_name,
+        email: s.email,
+        phone: s.phone || "",
+        address: s.address || "",
+        city: s.city || "",
+        country: s.country || "",
+        tax_id: s.tax_id || "",
+        payment_terms: s.payment_terms,
+        lead_time_days: s.lead_time_days,
+        status: s.status,
+        notes: s.notes || "",
       });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load supplier.");
     } finally {
       setLoading(false);
     }
   }, [supplierId]);
 
   useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-  ) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-  };
+    void loadSupplier();
+  }, [loadSupplier]);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    setNotification(null);
-
+    setError(null);
+    setSavedMsg(null);
     try {
-      const res = await sellersApi.update(supplierId, {
+      const res = await suppliersApi.update(supplierId, {
+        code: form.code.trim(),
         name: form.name.trim(),
-        owner_name: form.owner_name.trim(),
+        contact_name: form.contact_name.trim(),
         email: form.email.trim(),
         phone: form.phone.trim() || undefined,
         address: form.address.trim() || undefined,
-        description: form.description.trim() || undefined,
+        city: form.city.trim() || undefined,
+        country: form.country.trim() || undefined,
+        tax_id: form.tax_id.trim() || undefined,
+        payment_terms: form.payment_terms,
+        lead_time_days: Number(form.lead_time_days) || 0,
         status: form.status,
+        notes: form.notes.trim() || undefined,
       });
-
-      if (res.success && res.data) {
-        setSupplier(res.data);
-        setIsEditing(false);
-        setNotification({
-          type: "success",
-          text: "Supplier updated successfully in PostgreSQL database!",
-        });
-      }
-    } catch (err: any) {
-      setNotification({
-        type: "error",
-        text: err.message || "Failed to update supplier.",
-      });
+      setSupplier(res.data);
+      setSavedMsg("Supplier profile updated.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update supplier.");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm(`Are you sure you want to permanently delete supplier #${supplierId}?`)) {
-      return;
-    }
-    setDeleting(true);
-    try {
-      const res = await sellersApi.delete(supplierId);
-      if (res.success) {
-        router.push("/admin/suppliers");
-      }
-    } catch (err: any) {
-      setNotification({
-        type: "error",
-        text: err.message || "Failed to delete supplier.",
-      });
-      setDeleting(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="py-24 flex flex-col items-center justify-center text-[#7699F0]">
-        <Loader2 size={36} className="animate-spin mb-3" />
-        <p className="text-sm font-medium text-gray-600">
-          Loading supplier from PostgreSQL...
-        </p>
-      </div>
-    );
-  }
-
-  if (!supplier) {
-    return (
-      <div className="max-w-xl mx-auto py-20 text-center space-y-4">
-        <div className="w-14 h-14 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mx-auto">
-          <AlertCircle size={28} />
-        </div>
-        <h2 className="text-xl font-bold text-gray-900">Supplier Not Found</h2>
-        <p className="text-sm text-gray-500">
-          Supplier #{id} does not exist in PostgreSQL.
-        </p>
-        <Link
-          href="/admin/suppliers"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7699F0] text-white rounded-xl text-sm font-semibold hover:bg-blue-600 transition"
-        >
-          <ArrowLeft size={16} /> Back to Suppliers
-        </Link>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-4xl mx-auto space-y-6 pb-10">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/admin/suppliers"
-            className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
-          >
-            <ArrowLeft size={18} />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {isEditing ? "Edit Supplier" : supplier.name}
-            </h1>
-            <p className="text-sm text-gray-500 mt-0.5">PostgreSQL ID: #{supplier.id}</p>
+    <div className="space-y-6 max-w-5xl">
+      <Link
+        href="/admin/suppliers"
+        className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
+      >
+        <ArrowLeft size={16} />
+        Back to Suppliers
+      </Link>
+
+      {loading ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-8 text-sm text-slate-500">
+          Loading supplier details...
+        </div>
+      ) : error && !supplier ? (
+        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-rose-700 text-sm flex items-center gap-2">
+          <AlertCircle size={18} />
+          <span>{error}</span>
+        </div>
+      ) : supplier ? (
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white rounded-2xl border border-slate-200 p-5">
+              <p className="text-xs font-medium text-slate-500">Total Purchase Orders</p>
+              <p className="text-2xl font-bold text-slate-900 mt-1">
+                {supplier.purchase_orders_count}
+              </p>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-200 p-5">
+              <p className="text-xs font-medium text-slate-500">Open Purchase Orders</p>
+              <p className="text-2xl font-bold text-amber-700 mt-1">
+                {supplier.open_purchase_orders_count}
+              </p>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-200 p-5">
+              <p className="text-xs font-medium text-slate-500">Total Procured Amount</p>
+              <p className="text-2xl font-bold text-slate-900 mt-1">
+                ${Number(supplier.total_procured_amount || 0).toFixed(2)}
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          {!isEditing ? (
-            <>
-              <button
-                onClick={() => setIsEditing(true)}
-                className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
+          <div className="bg-white rounded-2xl border border-slate-200 p-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
+              <div>
+                <h1 className="text-xl font-bold text-slate-900">{supplier.name}</h1>
+                <p className="text-xs font-mono text-slate-500 mt-0.5">{supplier.code}</p>
+              </div>
+              <Link
+                href="/admin/inventory"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 text-white rounded-xl text-xs font-semibold"
               >
-                <Edit3 size={16} /> Edit
-              </button>
-              <button
-                onClick={handleDelete}
-                disabled={deleting}
-                className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 bg-red-50 border border-red-100 rounded-xl hover:bg-red-100 transition"
-              >
-                {deleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
-                Delete
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => {
-                  setForm({
-                    name: supplier.name || "",
-                    owner_name: supplier.owner_name || "",
-                    email: supplier.email || "",
-                    phone: supplier.phone || "",
-                    address: supplier.address || "",
-                    description: supplier.description || "",
-                    status: supplier.status || "Active",
-                  });
-                  setIsEditing(false);
-                }}
-                className="px-4 py-2.5 text-sm font-medium bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-[#7699F0] rounded-xl hover:bg-blue-600 disabled:opacity-50 transition"
-              >
-                {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
-                Save Changes
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+                <ClipboardList size={14} />
+                Create PO in Inventory
+              </Link>
+            </div>
 
-      {/* Notification */}
-      {notification && (
-        <div
-          className={`flex items-center gap-2 p-4 rounded-xl text-sm border ${
-            notification.type === "success"
-              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-              : "bg-red-50 border-red-200 text-red-800"
-          }`}
-        >
-          {notification.type === "success" ? (
-            <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
-          ) : (
-            <AlertCircle size={18} className="text-red-600 flex-shrink-0" />
-          )}
-          <span>{notification.text}</span>
-        </div>
-      )}
+            {savedMsg && (
+              <div className="mb-4 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                <CheckCircle2 size={15} />
+                {savedMsg}
+              </div>
+            )}
 
-      {/* Info Card */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-blue-50 text-[#7699F0] flex items-center justify-center font-bold text-xl">
-            <Truck size={28} />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-gray-900">{supplier.name}</h2>
-            <div className="flex items-center gap-3 mt-1">
-              <span
-                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  supplier.status.toLowerCase() === "active"
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-gray-100 text-gray-600"
-                }`}
-              >
-                <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    supplier.status.toLowerCase() === "active"
-                      ? "bg-emerald-500"
-                      : "bg-gray-400"
-                  }`}
+            {error && (
+              <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle size={15} />
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={handleSave} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Supplier Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Code
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={form.code}
+                    onChange={(e) => setForm({ ...form, code: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Contact Name
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={form.contact_name}
+                    onChange={(e) => setForm({ ...form, contact_name: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    value={form.email}
+                    onChange={(e) => setForm({ ...form, email: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Phone
+                  </label>
+                  <input
+                    type="text"
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Payment Terms
+                  </label>
+                  <select
+                    value={form.payment_terms}
+                    onChange={(e) => setForm({ ...form, payment_terms: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                  >
+                    <option value="Due on Receipt">Due on Receipt</option>
+                    <option value="Net 15">Net 15</option>
+                    <option value="Net 30">Net 30</option>
+                    <option value="Net 60">Net 60</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Lead Time (Days)
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={365}
+                    value={form.lead_time_days}
+                    onChange={(e) =>
+                      setForm({
+                        ...form,
+                        lead_time_days: parseInt(e.target.value, 10) || 0,
+                      })
+                    }
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                    className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+                  >
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">
+                  Notes
+                </label>
+                <textarea
+                  rows={2}
+                  value={form.notes}
+                  onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                  className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
                 />
-                {supplier.status}
-              </span>
-              <span className="text-xs text-gray-400">
-                Partner since {new Date(supplier.created_at).toLocaleDateString()}
-              </span>
-            </div>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold disabled:opacity-60 cursor-pointer"
+                >
+                  <Save size={15} />
+                  {saving ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
           </div>
-        </div>
-      </div>
 
-      {/* Details or Edit Form */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-6">
-        <h2 className="font-semibold text-gray-900">Supplier Profile</h2>
-
-        {isEditing ? (
-          <form onSubmit={handleSave} className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Company Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7699F0]"
-              />
+          {/* Purchase Order History */}
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100">
+              <h2 className="font-bold text-slate-900">Purchase Order History</h2>
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Contact Person <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="owner_name"
-                value={form.owner_name}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7699F0]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Email Address <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7699F0]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Phone Number
-              </label>
-              <input
-                type="text"
-                name="phone"
-                value={form.phone}
-                onChange={handleChange}
-                className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7699F0]"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Full Address
-              </label>
-              <input
-                type="text"
-                name="address"
-                value={form.address}
-                onChange={handleChange}
-                className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7699F0]"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Notes & Terms
-              </label>
-              <textarea
-                name="description"
-                value={form.description}
-                onChange={handleChange}
-                rows={3}
-                className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7699F0] resize-none"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Status
-              </label>
-              <select
-                name="status"
-                value={form.status}
-                onChange={handleChange}
-                className="w-full px-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7699F0]"
-              >
-                <option value="Active">Active</option>
-                <option value="Inactive">Inactive</option>
-              </select>
-            </div>
-          </form>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="space-y-1">
-              <p className="text-xs text-gray-400">Contact Person</p>
-              <p className="text-sm font-semibold text-gray-900">{supplier.owner_name}</p>
-            </div>
-
-            <div className="space-y-1">
-              <p className="text-xs text-gray-400">Email Address</p>
-              <p className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                <Mail size={15} className="text-[#7699F0]" />
-                {supplier.email}
-              </p>
-            </div>
-
-            <div className="space-y-1">
-              <p className="text-xs text-gray-400">Phone</p>
-              <p className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                <Phone size={15} className="text-emerald-500" />
-                {supplier.phone || "Not provided"}
-              </p>
-            </div>
-
-            <div className="space-y-1">
-              <p className="text-xs text-gray-400">Address</p>
-              <p className="text-sm text-gray-700">{supplier.address || "Not provided"}</p>
-            </div>
-
-            <div className="sm:col-span-2 space-y-1">
-              <p className="text-xs text-gray-400">Notes</p>
-              <p className="text-sm text-gray-700">{supplier.description || "No notes provided."}</p>
-            </div>
+            {supplier.recent_purchase_orders.length === 0 ? (
+              <div className="p-6 text-sm text-slate-500">
+                No purchase orders created for this supplier yet.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase">
+                    <tr>
+                      <th className="px-5 py-3">PO Number</th>
+                      <th className="px-5 py-3">Destination Warehouse</th>
+                      <th className="px-5 py-3">Status</th>
+                      <th className="px-5 py-3 text-right">Total Cost</th>
+                      <th className="px-5 py-3">Created</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {supplier.recent_purchase_orders.map((po) => (
+                      <tr key={po.id}>
+                        <td className="px-5 py-3 font-mono text-xs font-semibold text-slate-900">
+                          {po.po_number}
+                        </td>
+                        <td className="px-5 py-3 text-slate-700">
+                          {po.warehouse_name || `Warehouse #${po.warehouse_id}`}
+                        </td>
+                        <td className="px-5 py-3 capitalize text-slate-700">
+                          {po.status.replaceAll("_", " ")}
+                        </td>
+                        <td className="px-5 py-3 text-right font-semibold text-slate-900">
+                          ${Number(po.total_cost).toFixed(2)}
+                        </td>
+                        <td className="px-5 py-3 text-xs text-slate-500">
+                          {new Date(po.created_at).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-
-      {/* Supplied Products */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
-        <h2 className="font-semibold text-gray-900">Products from this Supplier ({products.length})</h2>
-
-        {products.length === 0 ? (
-          <p className="text-sm text-gray-400 py-3 text-center">
-            No products associated with this supplier in PostgreSQL.
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50 text-gray-500 text-xs font-semibold uppercase">
-                <tr>
-                  <th className="px-4 py-3">Product Name</th>
-                  <th className="px-4 py-3">Price</th>
-                  <th className="px-4 py-3">Stock</th>
-                  <th className="px-4 py-3 text-right">View</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {products.map((p) => (
-                  <tr key={p.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium text-gray-900">{p.name}</td>
-                    <td className="px-4 py-3 text-gray-600">${Number(p.price).toFixed(2)}</td>
-                    <td className="px-4 py-3 text-gray-600">{p.stock} units</td>
-                    <td className="px-4 py-3 text-right">
-                      <Link
-                        href={`/admin/products/${p.id}`}
-                        className="text-xs font-semibold text-[#7699F0] hover:underline"
-                      >
-                        Details →
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+        </>
+      ) : null}
     </div>
   );
 }

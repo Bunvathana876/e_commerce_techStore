@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from app.core.dependencies import require_roles
+from app.core.dependencies import get_optional_current_user, require_roles
 from app.db.database import get_db
 from app.models.user import User
 from app.schemas.coupon import (
@@ -25,11 +25,13 @@ router = APIRouter(prefix="/coupons", tags=["Coupons & Discounts"])
 def validate_coupon(
     request: CouponValidateRequest,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
 ):
     result = CouponService.validate_and_calculate_discount(
         db=db,
         code=request.code,
         subtotal=request.subtotal,
+        user_id=current_user.id if current_user else None,
     )
     return {
         "success": True,

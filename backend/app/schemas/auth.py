@@ -17,11 +17,21 @@ class RegisterRequest(BaseModel):
     @classmethod
     def reconcile_name(cls, data: Any) -> Any:
         if isinstance(data, dict):
-            if not data.get("name") and data.get("full_name"):
-                data["name"] = data["full_name"]
-            elif not data.get("full_name") and data.get("name"):
-                data["full_name"] = data["name"]
+            resolved = str(data.get("name") or data.get("full_name") or "").strip()
+            if not resolved:
+                raise ValueError("Full name is required.")
+            data["name"] = resolved
+            data["full_name"] = resolved
         return data
+
+    @model_validator(mode="after")
+    def validate_resolved_name(self) -> "RegisterRequest":
+        resolved = (self.name or self.full_name or "").strip()
+        if not resolved:
+            raise ValueError("Full name is required.")
+        self.name = resolved
+        self.full_name = resolved
+        return self
 
 
 class LoginRequest(BaseModel):
@@ -83,6 +93,20 @@ class SessionListResponse(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(repr=False)
+    new_password: str = Field(repr=False)
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+    client: str = Field(default="storefront", max_length=20)  # storefront | management | mobile
+
+
+class ResetPasswordValidateRequest(BaseModel):
+    token: str = Field(min_length=16, max_length=256, repr=False)
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=16, max_length=256, repr=False)
     new_password: str = Field(repr=False)
 
 

@@ -45,8 +45,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     });
   }
 
-  void _incrementQuantity() {
-    if (_quantity < 99) {
+  void _incrementQuantity(ProductModel currentProduct) {
+    if (currentProduct.isOutOfStock) return;
+    final maxAllowed = currentProduct.stock > 0
+        ? currentProduct.stock.clamp(1, 99)
+        : 1;
+    if (_quantity < maxAllowed) {
       setState(() => _quantity++);
     }
   }
@@ -1889,7 +1893,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ),
                       // Plus button
                       BouncingButton(
-                        onTap: _incrementQuantity,
+                        onTap:
+                            currentProduct.isOutOfStock ||
+                                _quantity >= currentProduct.stock
+                            ? null
+                            : () => _incrementQuantity(currentProduct),
                         child: Container(
                           height: 34,
                           width: 34,
@@ -1910,9 +1918,15 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           child: Icon(
                             Icons.add_rounded,
                             size: 16,
-                            color: isDark
-                                ? Colors.white
-                                : const Color(0xFF0F172A),
+                            color:
+                                currentProduct.isOutOfStock ||
+                                    _quantity >= currentProduct.stock
+                                ? (isDark
+                                      ? const Color(0xFF475569)
+                                      : const Color(0xFF94A3B8))
+                                : (isDark
+                                      ? Colors.white
+                                      : const Color(0xFF0F172A)),
                           ),
                         ),
                       ),
@@ -1924,65 +1938,93 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 // Primary Add to Cart Action Button
                 Expanded(
                   child: BouncingButton(
-                    onTap: () {
-                      context.read<CartProvider>().addItem(
-                        currentProduct,
-                        quantity: _quantity,
-                      );
+                    key: const Key('add_to_cart_button'),
+                    onTap: currentProduct.isOutOfStock
+                        ? null
+                        : () {
+                            final clampedQty = _quantity.clamp(
+                              1,
+                              currentProduct.stock > 0
+                                  ? currentProduct.stock
+                                  : 1,
+                            );
+                            context.read<CartProvider>().addItem(
+                              currentProduct,
+                              quantity: clampedQty,
+                            );
 
-                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Row(
-                            children: [
-                              const Icon(
-                                Icons.check_circle_rounded,
-                                color: Colors.white,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  'Added $_quantity × ${currentProduct.name} to cart!',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white,
-                                  ),
+                            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.check_circle_rounded,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        'Added $clampedQty × ${currentProduct.name} to cart!',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                                backgroundColor: const Color(0xFF2563EB),
+                                behavior: SnackBarBehavior.floating,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                margin: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  96,
+                                ),
+                                duration: const Duration(seconds: 2),
                               ),
-                            ],
-                          ),
-                          backgroundColor: const Color(0xFF2563EB),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          margin: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-                          duration: const Duration(seconds: 2),
-                        ),
-                      );
-                    },
+                            );
+                          },
                     child: Container(
                       height: 48,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF2563EB), Color(0xFF1565C0)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                        gradient: currentProduct.isOutOfStock
+                            ? LinearGradient(
+                                colors: isDark
+                                    ? const [
+                                        Color(0xFF334155),
+                                        Color(0xFF1E293B),
+                                      ]
+                                    : const [
+                                        Color(0xFF94A3B8),
+                                        Color(0xFF64748B),
+                                      ],
+                              )
+                            : const LinearGradient(
+                                colors: [Color(0xFF2563EB), Color(0xFF1565C0)],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
                         borderRadius: BorderRadius.circular(16),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(
-                              0xFF2563EB,
-                            ).withValues(alpha: 0.35),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+                        boxShadow: currentProduct.isOutOfStock
+                            ? const []
+                            : [
+                                BoxShadow(
+                                  color: const Color(
+                                    0xFF2563EB,
+                                  ).withValues(alpha: 0.35),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                       ),
                       alignment: Alignment.center,
                       child: Padding(
@@ -1992,14 +2034,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(
-                                Icons.shopping_bag_outlined,
+                              Icon(
+                                currentProduct.isOutOfStock
+                                    ? Icons.inventory_2_outlined
+                                    : Icons.shopping_bag_outlined,
                                 color: Colors.white,
                                 size: 19,
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                'Add • \$${totalPrice.toStringAsFixed(2)}',
+                                currentProduct.isOutOfStock
+                                    ? 'Out of Stock'
+                                    : 'Add • \$${totalPrice.toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 15,

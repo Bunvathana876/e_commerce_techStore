@@ -60,6 +60,58 @@ function getApiRemotePattern(): { protocol: "http" | "https"; hostname: string; 
 
 const apiRemotePattern = getApiRemotePattern();
 
+type RemotePatternConfig = {
+  protocol: "http" | "https";
+  hostname: string;
+  port?: string;
+  pathname: string;
+};
+
+function getCloudMediaRemotePatterns(): RemotePatternConfig[] {
+  const candidates = [
+    ...(process.env.NEXT_PUBLIC_MEDIA_HOSTS || "").split(","),
+    process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+    process.env.SUPABASE_URL || "",
+    process.env.NEXT_PUBLIC_S3_PUBLIC_BASE_URL || "",
+    process.env.S3_PUBLIC_BASE_URL || "",
+  ];
+  const seen = new Set<string>();
+  const patterns: RemotePatternConfig[] = [
+    { protocol: "https", hostname: "*.supabase.co", pathname: "/storage/v1/object/public/**" },
+    { protocol: "https", hostname: "*.r2.dev", pathname: "/**" },
+    { protocol: "https", hostname: "*.amazonaws.com", pathname: "/**" },
+  ];
+  for (const item of patterns) {
+    seen.add(`${item.protocol}://${item.hostname}${item.pathname}`);
+  }
+  for (const rawEntry of candidates) {
+    const entry = rawEntry.trim();
+    if (!entry) continue;
+    try {
+      const normalized = entry.includes("://") ? entry : `https://${entry}`;
+      const parsed = new URL(normalized);
+      const protocol = parsed.protocol.replace(":", "") as "http" | "https";
+      if ((protocol === "http" || protocol === "https") && parsed.hostname) {
+        const key = `${protocol}://${parsed.hostname}:${parsed.port || ""}/**`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          patterns.push({
+            protocol,
+            hostname: parsed.hostname,
+            port: parsed.port || undefined,
+            pathname: "/**",
+          });
+        }
+      }
+    } catch {
+      // Ignore malformed optional media host entry
+    }
+  }
+  return patterns;
+}
+
+const cloudMediaRemotePatterns = getCloudMediaRemotePatterns();
+
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
@@ -96,6 +148,7 @@ const nextConfig: NextConfig = {
         pathname: "/**",
       },
       ...(apiRemotePattern ? [apiRemotePattern] : []),
+      ...cloudMediaRemotePatterns,
     ],
   },
   experimental: {

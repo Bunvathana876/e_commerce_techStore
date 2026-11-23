@@ -80,4 +80,40 @@ class AuthApiService {
       timeout: const Duration(seconds: 5),
     );
   }
+
+  // Request password reset link/token via email
+  Future<Map<String, dynamic>> requestPasswordReset(String email) async {
+    final response = await _client.post<Map<String, dynamic>>(
+      ApiEndpoints.forgotPassword,
+      body: {'email': email.trim(), 'client': 'mobile'},
+      parser: (data) =>
+          data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{},
+    );
+    return {
+      'message': response.message,
+      ...?response.data,
+    };
+  }
+
+  // Validate password reset token before rendering/submitting new password
+  Future<bool> validateResetToken(String token) async {
+    final response = await _client.post<Map<String, dynamic>>(
+      ApiEndpoints.validateResetToken,
+      body: {'token': token.trim()},
+      parser: (data) =>
+          data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{},
+    );
+    return response.data?['valid'] == true;
+  }
+
+  // Confirm password reset using issued token and new password
+  Future<void> confirmPasswordReset({
+    required String token,
+    required String newPassword,
+  }) async {
+    await _client.post<dynamic>(
+      ApiEndpoints.resetPassword,
+      body: {'token': token.trim(), 'new_password': newPassword},
+    );
+  }
 }

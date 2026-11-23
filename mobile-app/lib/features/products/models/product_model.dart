@@ -10,6 +10,8 @@ class ProductModel {
   final double rating;
   final int reviewCount;
   final int categoryId;
+  final int stock;
+  final bool isActive;
   final String imageUrl;
   final bool isFavorite;
 
@@ -23,12 +25,17 @@ class ProductModel {
     required this.rating,
     required this.reviewCount,
     required this.categoryId,
+    this.stock = 10,
+    this.isActive = true,
     required this.imageUrl,
     this.isFavorite = false,
   });
 
+  bool get isOutOfStock => !isActive || stock <= 0;
+  bool get isLowStock => isActive && stock > 0 && stock <= 5;
+
   // Clone product with updated attributes
-  ProductModel copyWith({bool? isFavorite}) {
+  ProductModel copyWith({bool? isFavorite, int? stock, bool? isActive}) {
     return ProductModel(
       id: id,
       name: name,
@@ -39,6 +46,8 @@ class ProductModel {
       rating: rating,
       reviewCount: reviewCount,
       categoryId: categoryId,
+      stock: stock ?? this.stock,
+      isActive: isActive ?? this.isActive,
       imageUrl: imageUrl,
       isFavorite: isFavorite ?? this.isFavorite,
     );
@@ -83,6 +92,10 @@ class ProductModel {
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
       reviewCount: (json['review_count'] as num?)?.toInt() ?? 0,
       categoryId: (json['category_id'] as num?)?.toInt() ?? 1,
+      stock: json.containsKey('stock')
+          ? ((json['stock'] as num?)?.toInt() ?? 0)
+          : 10,
+      isActive: json['is_active'] as bool? ?? true,
       imageUrl: normalizedImage,
       isFavorite: json['is_favorite'] as bool? ?? false,
     );
@@ -100,6 +113,8 @@ class ProductModel {
       'rating': rating,
       'review_count': reviewCount,
       'category_id': categoryId,
+      'stock': stock,
+      'is_active': isActive,
       'image_url': imageUrl,
       'is_favorite': isFavorite,
     };

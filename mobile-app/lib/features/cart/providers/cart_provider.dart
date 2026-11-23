@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_exceptions.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../products/models/product_model.dart';
@@ -34,6 +35,12 @@ class CartProvider extends ChangeNotifier {
     this.useRemoteBackend = true,
   }) : _cartApiService = cartApiService ?? CartApiService() {
     AuthProvider.registerLogoutListener(clearCart);
+    AuthProvider.registerLoginListener(_syncCartOnLogin);
+  }
+
+  Future<void> _syncCartOnLogin() async {
+    if (!useRemoteBackend) return;
+    await loadRemoteCart();
   }
 
   // Read-only list of items in the cart
@@ -48,8 +55,45 @@ class CartProvider extends ChangeNotifier {
   // Subtotal before shipping fees
   double get subtotal => _items.fold(0.0, (sum, item) => sum + item.totalPrice);
 
-  // Match backend checkout: free at $100 before discounts, otherwise $2.
-  double get shippingFee => (subtotal >= 100.0 || _items.isEmpty) ? 0.0 : 2.0;
+  double _freeShippingMin = 100.0;
+  double _standardShippingFee = 2.0;
+
+  double get freeShippingMin => _freeShippingMin;
+  double get standardShippingFee => _standardShippingFee;
+
+  void applyShippingRules({
+    required double freeShippingMin,
+    required double standardShippingFee,
+  }) {
+    _freeShippingMin = freeShippingMin < 0 ? 0.0 : freeShippingMin;
+    _standardShippingFee = standardShippingFee < 0 ? 0.0 : standardShippingFee;
+    notifyListeners();
+  }
+
+  Future<void> loadPublicShippingSettings() async {
+    try {
+      final response = await _cartApiService.client.get<Map<String, dynamic>>(
+        ApiEndpoints.publicSettings,
+        parser: (data) =>
+            data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{},
+      );
+      final data = response.data;
+      if (data == null) return;
+      final min = _parseAmount(data['free_shipping_min']);
+      final fee = _parseAmount(data['standard_shipping_fee']);
+      if (data.containsKey('free_shipping_min') &&
+          data.containsKey('standard_shipping_fee')) {
+        applyShippingRules(
+          freeShippingMin: min,
+          standardShippingFee: fee,
+        );
+      }
+    } catch (_) {}
+  }
+
+  // Match persisted store settings (defaults to free at $100+, otherwise $2)
+  double get shippingFee =>
+      (subtotal >= _freeShippingMin || _items.isEmpty) ? 0.0 : _standardShippingFee;
 
   // Final grand total (subtotal - discount + shipping)
   double get grandTotal {
@@ -307,15 +351,23 @@ class CartProvider extends ChangeNotifier {
     String variant = 'Standard',
     int quantity = 1,
   }) {
+    if (product.isOutOfStock || quantity <= 0) return;
+
+    final maxStock = product.stock > 0 ? product.stock : 1;
     final existingIndex = _items.indexWhere(
       (item) => item.product.id == product.id && item.variant == variant,
     );
 
     if (existingIndex >= 0) {
-      _items[existingIndex].quantity += quantity;
+      final targetQty = (_items[existingIndex].quantity + quantity).clamp(
+        1,
+        maxStock,
+      );
+      _items[existingIndex].quantity = targetQty;
     } else {
+      final targetQty = quantity.clamp(1, maxStock);
       _items.add(
-        CartItemModel(product: product, variant: variant, quantity: quantity),
+        CartItemModel(product: product, variant: variant, quantity: targetQty),
       );
     }
     _recalculateCouponIfApplied();
@@ -339,7 +391,12 @@ class CartProvider extends ChangeNotifier {
   // Increase quantity of item by 1
   void incrementQuantity(int index) {
     if (index >= 0 && index < _items.length) {
-      _items[index].quantity++;
+      final currentItem = _items[index];
+      if (currentItem.product.isOutOfStock ||
+          currentItem.quantity >= currentItem.product.stock) {
+        return;
+      }
+      currentItem.quantity++;
       final item = _items[index];
       _recalculateCouponIfApplied();
       notifyListeners();
@@ -416,6 +473,7 @@ class CartProvider extends ChangeNotifier {
   @override
   void dispose() {
     AuthProvider.unregisterLogoutListener(clearCart);
+    AuthProvider.unregisterLoginListener(_syncCartOnLogin);
     super.dispose();
   }
 }

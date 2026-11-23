@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useState, useEffect } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { IoPersonSharp } from "react-icons/io5";
 import { MdOutlineEmail } from "react-icons/md";
@@ -288,6 +289,15 @@ function AuthFormInner({ mode }: AuthFormProps) {
               <span className="absolute right-3 top-3 text-gray-400">
                 <FaLock size={16} />
               </span>
+            </div>
+
+            <div className="flex justify-end">
+              <Link
+                href="/forgot-password"
+                className="text-xs font-medium text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                Forgot password?
+              </Link>
             </div>
 
             <button

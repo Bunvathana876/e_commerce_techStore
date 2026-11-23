@@ -84,5 +84,5 @@ def test_alembic_script_directory_loads_without_error():
     cfg = Config(str(ALEMBIC_INI_PATH))
     script = ScriptDirectory.from_config(cfg)
     heads = script.get_heads()
-    assert heads == ["e1f2a3b4c5d6"]
+    assert heads == ["g3b4c5d6e7f8"]
 

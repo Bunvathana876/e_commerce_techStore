@@ -605,25 +605,41 @@ onLogout(() => {
   useShopStore.getState().resetUserSession();
 });
 
+export interface StoreShippingRules {
+  freeShippingThreshold?: number;
+  standardShippingFee?: number;
+}
+
 export function getCartTotals(
   items: StoreCartItem[],
-  appliedCoupon: AppliedCouponState | null
+  appliedCoupon: AppliedCouponState | null,
+  shippingRules?: StoreShippingRules
 ) {
+  const threshold =
+    typeof shippingRules?.freeShippingThreshold === "number" &&
+    Number.isFinite(shippingRules.freeShippingThreshold) &&
+    shippingRules.freeShippingThreshold >= 0
+      ? shippingRules.freeShippingThreshold
+      : FREE_SHIPPING_THRESHOLD;
+  const standardFee =
+    typeof shippingRules?.standardShippingFee === "number" &&
+    Number.isFinite(shippingRules.standardShippingFee) &&
+    shippingRules.standardShippingFee >= 0
+      ? shippingRules.standardShippingFee
+      : STANDARD_SHIPPING_FEE;
+
   const subtotal = computeSubtotal(items);
   const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
   const discount = appliedCoupon
     ? Math.min(subtotal, appliedCoupon.discountAmount)
     : 0;
-  const shipping =
-    subtotal === 0 || subtotal >= FREE_SHIPPING_THRESHOLD
-      ? 0
-      : STANDARD_SHIPPING_FEE;
+  const shipping = subtotal === 0 || subtotal >= threshold ? 0 : standardFee;
   const total = Math.max(0, subtotal - discount + shipping);
-  const amountToFreeShipping = Math.max(0, FREE_SHIPPING_THRESHOLD - subtotal);
-  const freeShippingProgress = Math.min(
-    100,
-    Math.round((subtotal / FREE_SHIPPING_THRESHOLD) * 100)
-  );
+  const amountToFreeShipping = Math.max(0, threshold - subtotal);
+  const freeShippingProgress =
+    threshold <= 0
+      ? 100
+      : Math.min(100, Math.round((subtotal / threshold) * 100));
 
   return {
     subtotal,
@@ -633,5 +649,7 @@ export function getCartTotals(
     total,
     amountToFreeShipping,
     freeShippingProgress,
+    freeShippingThreshold: threshold,
+    standardShippingFee: standardFee,
   };
 }

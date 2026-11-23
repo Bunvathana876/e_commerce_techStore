@@ -171,39 +171,11 @@ class ReviewProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      if (isFlutterTest) {
-        // In case of error during flutter_test, provide local mock review
-        final fallbackReview = ReviewModel(
-          id: DateTime.now().millisecondsSinceEpoch,
-          productId: productId,
-          userId: 0,
-          orderId: orderId,
-          rating: rating,
-          comment: comment.trim(),
-          status: 'approved',
-          createdAt: DateTime.now(),
-          userName: currentUserName?.isNotEmpty == true
-              ? currentUserName!
-              : 'Verified Customer',
-          userAvatar: currentUserAvatar,
-        );
-
-        final currentList = List<ReviewModel>.from(
-          _reviewsByProduct[productId] ?? [],
-        );
-        currentList.insert(0, fallbackReview);
-        _reviewsByProduct[productId] = currentList;
-
-        _isSubmitting = false;
-        notifyListeners();
-        return true;
-      } else {
-        _errorMessage =
-            'Network is not connected. Unable to submit review to server.';
-        _isSubmitting = false;
-        notifyListeners();
-        return false;
-      }
+      _errorMessage =
+          'Network is not connected. Unable to submit review to server.';
+      _isSubmitting = false;
+      notifyListeners();
+      return false;
     }
   }
 }

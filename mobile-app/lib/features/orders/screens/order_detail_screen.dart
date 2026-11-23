@@ -369,7 +369,7 @@ class OrderDetailScreen extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Live GPS tracking is not available for standard delivery. Standard courier dispatch in progress.',
+                      'Track carrier assignment, tracking number, and fulfillment checkpoints below.',
                       style: TextStyle(
                         fontSize: 11,
                         color: isDark

@@ -12,9 +12,7 @@ import {
   Lock,
   MapPin,
   PackageCheck,
-  QrCode,
   ShieldCheck,
-  Smartphone,
   Tag,
   type LucideIcon,
 } from "lucide-react";
@@ -40,9 +38,7 @@ import { getCartTotals, useShopStore } from "@/lib/store";
 
 const PAYMENT_METHOD_ICONS: Record<string, LucideIcon> = {
   "Cash on Delivery": Banknote,
-  "KHQR Scan & Pay": QrCode,
   "Credit / Debit Card": CreditCard,
-  "Apple Pay": Smartphone,
 };
 
 export default function CheckoutPage() {
@@ -618,15 +614,6 @@ export default function CheckoutPage() {
                 );
               })}
             </div>
-
-            {CHECKOUT_PAYMENT_METHODS.find((pm) => pm.id === paymentMethod)
-              ?.isDemo && (
-              <p className="text-xs font-semibold text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2.5">
-                Demo payment method selected: online payment capture is not
-                integrated yet. Your order payment status will remain{" "}
-                <strong>Pending Verification</strong> until verified.
-              </p>
-            )}
           </section>
         </div>
 

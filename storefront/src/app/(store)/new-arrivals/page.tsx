@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/store/PageHeader";
 import {
@@ -26,6 +26,7 @@ export default function NewArrivalsPage() {
 
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [onlyInStock, setOnlyInStock] = useState<boolean>(false);
+  const retryRef = useRef<((param?: unknown) => void) | null>(null);
 
   const loadArrivals = useCallback((param?: unknown) => {
     const isRetry =
@@ -44,7 +45,7 @@ export default function NewArrivalsPage() {
 
       if (prodFailed && !isRetry && typeof window !== "undefined") {
         setTimeout(() => {
-          loadArrivals({ isRetry: true });
+          retryRef.current?.({ isRetry: true });
         }, 2500);
         return;
       }
@@ -65,6 +66,10 @@ export default function NewArrivalsPage() {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    retryRef.current = loadArrivals;
+  }, [loadArrivals]);
 
   useEffect(() => {
     loadArrivals();

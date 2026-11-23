@@ -29,23 +29,27 @@ async def upload_image(
             product_id=product_id,
             seller_id=seller_id,
         )
-        unique_filename = UploadService.validate_and_store_product_image(file)
+        stored = UploadService.validate_and_store_product_image_result(file)
     finally:
         await file.close()
 
-    relative_path = f"/uploads/products/{unique_filename}"
-    base_url = str(request.base_url).rstrip("/")
-    if "0.0.0.0" in base_url:
-        base_url = base_url.replace("0.0.0.0", "localhost")
-
-    full_url = f"{base_url}{relative_path}"
+    if stored.storage_backend == "local":
+        relative_path = stored.relative_url or f"/uploads/products/{stored.filename}"
+        base_url = str(request.base_url).rstrip("/")
+        if "0.0.0.0" in base_url:
+            base_url = base_url.replace("0.0.0.0", "localhost")
+        full_url = f"{base_url}{relative_path}"
+    else:
+        relative_path = stored.relative_url or stored.url or ""
+        full_url = stored.url or relative_path
 
     return {
         "success": True,
         "message": "Image uploaded successfully.",
         "data": {
-            "filename": unique_filename,
+            "filename": stored.filename,
             "url": full_url,
             "relative_url": relative_path,
+            "storage_backend": stored.storage_backend,
         },
     }

@@ -3,7 +3,9 @@ from decimal import Decimal
 
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
+    ForeignKey,
     Integer,
     Numeric,
     String,
@@ -73,6 +75,12 @@ class Coupon(Base):
         default=None,
     )
 
+    per_user_limit: Mapped[int | None] = mapped_column(
+        Integer,
+        nullable=True,
+        default=None,
+    )
+
     used_count: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
@@ -81,6 +89,49 @@ class Coupon(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
+        server_default=func.now(),
+        nullable=False,
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "per_user_limit IS NULL OR per_user_limit > 0",
+            name="ck_coupons_per_user_limit_positive",
+        ),
+    )
+
+
+class CouponRedemption(Base):
+    """Per-order coupon redemption audit record enabling per-user limit enforcement."""
+
+    __tablename__ = "coupon_redemptions"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        autoincrement=True,
+    )
+
+    coupon_id: Mapped[int] = mapped_column(
+        ForeignKey("coupons.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    order_id: Mapped[int] = mapped_column(
+        ForeignKey("orders.id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
+    redeemed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )

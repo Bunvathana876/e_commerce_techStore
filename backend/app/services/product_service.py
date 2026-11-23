@@ -11,6 +11,7 @@ from app.models.product import Product
 from app.models.seller import Seller
 from app.schemas.category import CategoryCreate, CategoryUpdate
 from app.schemas.product import ProductCreate, ProductPaginationResponse, ProductResponse, ProductUpdate
+from app.services.inventory_service import InventoryService
 
 
 class ProductService:
@@ -239,8 +240,13 @@ class ProductService:
                     detail=f"Seller with id {data.seller_id} does not exist.",
                 )
 
-        product = Product(**data.model_dump())
+        product_data = data.model_dump()
+        product_data["rating"] = Decimal("0.00")
+        product = Product(**product_data)
         db.add(product)
+        db.flush()
+        if product.stock > 0:
+            InventoryService.record_product_opening_stock(db, product)
         db.commit()
         db.refresh(product)
 
@@ -257,6 +263,7 @@ class ProductService:
     def update_product(db: Session, product_id: int, data: ProductUpdate) -> Product:
         product = ProductService.get_product_by_id(db, product_id)
         old_seller_id = product.seller_id
+        old_stock = int(product.stock)
         update_dict = data.model_dump(exclude_unset=True)
 
         if "category_id" in update_dict and update_dict["category_id"] is not None:
@@ -272,6 +279,17 @@ class ProductService:
 
         for key, value in update_dict.items():
             setattr(product, key, value)
+
+        if product.discount_price is not None and product.discount_price >= product.price:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="Discount price must be strictly less than regular price.",
+            )
+
+        if "stock" in update_dict and int(product.stock) != old_stock:
+            InventoryService.record_product_stock_delta(
+                db, product, old_stock, int(product.stock)
+            )
 
         db.commit()
         db.refresh(product)

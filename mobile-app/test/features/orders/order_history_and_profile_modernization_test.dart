@@ -27,7 +27,7 @@ void main() {
     subtotal: 120.00,
     shippingFee: 0.00,
     total: 120.00,
-    paymentMethod: 'ABA / KHQR Pay',
+    paymentMethod: 'Credit / Debit Card',
     paymentStatus: 'paid',
     shippingAddress: 'Street 2004, Phnom Penh, Cambodia',
     createdAt: testDate,
@@ -243,7 +243,7 @@ void main() {
       expect(find.text('#1001'), findsOneWidget);
       expect(find.text('Processing'), findsOneWidget);
       expect(find.text('\$120.00'), findsOneWidget);
-      expect(find.textContaining('ABA / KHQR Pay'), findsOneWidget);
+      expect(find.textContaining('Credit / Debit Card'), findsOneWidget);
 
       // Order 1002 cards details
       expect(find.text('#1002'), findsOneWidget);
@@ -315,9 +315,9 @@ void main() {
       expect(find.text('Shipped'), findsOneWidget);
       expect(find.text('Delivered'), findsOneWidget);
 
-      // Truthful tracking notice (no fake live GPS)
+      // Carrier tracking notice (no fake live GPS)
       expect(
-        find.textContaining('Live GPS tracking is not available'),
+        find.textContaining('Track carrier assignment, tracking number'),
         findsOneWidget,
       );
 
@@ -330,7 +330,7 @@ void main() {
       expect(find.text('Delivery Address'), findsOneWidget);
       expect(find.text('Street 2004, Phnom Penh, Cambodia'), findsOneWidget);
       expect(find.text('Payment Information'), findsOneWidget);
-      expect(find.text('ABA / KHQR Pay'), findsOneWidget);
+      expect(find.text('Credit / Debit Card'), findsOneWidget);
       expect(find.text('Paid'), findsOneWidget);
 
       // Price breakdown
@@ -466,9 +466,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Supported Payment Methods'), findsOneWidget);
-      expect(find.text('ABA KHQR Pay'), findsOneWidget);
+      expect(find.text('ABA KHQR Pay'), findsNothing);
+      expect(find.text('Credit / Debit Card'), findsOneWidget);
       expect(find.text('Cash on Delivery (COD)'), findsOneWidget);
-      expect(find.text('Demo'), findsNWidgets(2));
+      expect(find.text('Supported'), findsOneWidget);
       expect(find.text('Available'), findsOneWidget);
 
       // Close sheet

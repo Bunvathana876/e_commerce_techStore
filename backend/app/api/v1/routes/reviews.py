@@ -125,5 +125,6 @@ def _review_response(review: ReviewResponse, user: User | None) -> dict:
     if not AuthorizationService.is_admin(user):
         if data.get("user"):
             data["user"].pop("email", None)
-        data.pop("order_id", None)
+        if user is None or review.user_id != user.id:
+            data.pop("order_id", None)
     return data

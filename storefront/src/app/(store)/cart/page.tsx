@@ -15,16 +15,16 @@ import {
   Trash2,
   Truck,
 } from "lucide-react";
-import { couponsApi } from "@/lib/api";
+import { couponsApi, settingsApi } from "@/lib/api";
 import {
   applyProductImageFallback,
   getEffectivePrice,
   resolveProductImage,
 } from "@/lib/store-catalog";
 import {
-  FREE_SHIPPING_THRESHOLD,
   getCartTotals,
   useShopStore,
+  type StoreShippingRules,
 } from "@/lib/store";
 
 export default function CartPage() {
@@ -43,6 +43,7 @@ export default function CartPage() {
   const [promoError, setPromoError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const [availableCoupons, setAvailableCoupons] = useState<string[]>([]);
+  const [shippingRules, setShippingRules] = useState<StoreShippingRules>({});
 
   useEffect(() => {
     couponsApi
@@ -54,9 +55,23 @@ export default function CartPage() {
         setAvailableCoupons(codes);
       })
       .catch(() => setAvailableCoupons([]));
+
+    settingsApi
+      .getPublic()
+      .then((res) => {
+        if (res.success && res.data) {
+          const min = Number(res.data.free_shipping_min);
+          const fee = Number(res.data.standard_shipping_fee);
+          setShippingRules({
+            freeShippingThreshold: Number.isFinite(min) ? min : undefined,
+            standardShippingFee: Number.isFinite(fee) ? fee : undefined,
+          });
+        }
+      })
+      .catch(() => {});
   }, []);
 
-  const totals = getCartTotals(items, appliedCoupon);
+  const totals = getCartTotals(items, appliedCoupon, shippingRules);
 
   const handleApplyPromo = async (codeOverride?: string) => {
     const code = (codeOverride ?? promoCode).trim();
@@ -169,7 +184,7 @@ export default function CartPage() {
                 </span>
               )}
               <span className="bp-price shrink-0 text-xs text-muted">
-                ${FREE_SHIPPING_THRESHOLD}
+                ${totals.freeShippingThreshold}
               </span>
             </div>
             <div

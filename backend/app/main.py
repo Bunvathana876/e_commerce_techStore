@@ -198,23 +198,34 @@ def _render_developer_landing_page(version: str) -> str:
     </p>
 
     <div class="grid">
-      <a href="http://localhost:3000/admin" class="card">
+      <a href="http://localhost:3000" class="card">
         <div>
-          <div class="card-icon">💻</div>
+          <div class="card-icon">🛍️</div>
           <div class="card-title">
-            Web Admin Portal
+            Customer Storefront
             <span class="tag">:3000</span>
           </div>
-          <div class="card-desc">Store overview, products catalog, order fulfillment, customers, and analytics.</div>
+          <div class="card-desc">Customer shopping catalog, cart sync, Stripe &amp; COD checkout, and order tracking.</div>
         </div>
       </a>
 
-      <a href="http://localhost:3000/admin/pos" class="card">
+      <a href="http://localhost:3001/admin" class="card">
+        <div>
+          <div class="card-icon">💻</div>
+          <div class="card-title">
+            Management Portal
+            <span class="tag">:3001</span>
+          </div>
+          <div class="card-desc">Admin &amp; seller portal for products, orders, shipments, inventory, coupons, and settings.</div>
+        </div>
+      </a>
+
+      <a href="http://localhost:3001/admin/pos" class="card">
         <div>
           <div class="card-icon">🛒</div>
           <div class="card-title">
             Point of Sale (POS)
-            <span class="tag">:3000/pos</span>
+            <span class="tag">:3001/pos</span>
           </div>
           <div class="card-desc">Retail cashier counter, barcode scan, cart management, cash change calculator, and thermal receipts.</div>
         </div>

@@ -60,7 +60,7 @@ export default function RefundsPage() {
       amount: amount,
       reason: order.status === "cancelled" ? "Order Cancelled by Customer" : "Return / Refund Request",
       status: status,
-      method: order.payment_method || "ABA Bank / KHQR",
+      method: order.payment_method || "Cash on Delivery",
       date: !isNaN(dateObj.getTime()) ? dateObj.toLocaleDateString() : "N/A",
       time: !isNaN(dateObj.getTime())
         ? dateObj.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })

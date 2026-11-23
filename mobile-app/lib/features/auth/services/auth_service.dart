@@ -70,6 +70,41 @@ class AuthService {
     }
   }
 
+  // Request password reset email
+  Future<Map<String, dynamic>> requestPasswordReset(String email) async {
+    if (useRemoteBackend) {
+      return await _apiService.requestPasswordReset(email);
+    }
+    await Future.delayed(const Duration(milliseconds: 300));
+    return {
+      'message':
+          'If an account exists for $email, password reset instructions have been sent.',
+    };
+  }
+
+  // Validate password reset token
+  Future<bool> validateResetToken(String token) async {
+    if (useRemoteBackend) {
+      return await _apiService.validateResetToken(token);
+    }
+    return token.trim().isNotEmpty;
+  }
+
+  // Confirm password reset
+  Future<void> confirmPasswordReset({
+    required String token,
+    required String newPassword,
+  }) async {
+    if (useRemoteBackend) {
+      await _apiService.confirmPasswordReset(
+        token: token,
+        newPassword: newPassword,
+      );
+      return;
+    }
+    await Future.delayed(const Duration(milliseconds: 300));
+  }
+
   Map<String, dynamic> _mockRegisteredSession(String fullName, String email) {
     return {
       'token': 'mock_jwt_access_token_registered',

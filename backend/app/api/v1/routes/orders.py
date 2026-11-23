@@ -5,7 +5,10 @@ from app.core.dependencies import get_current_user, require_roles
 from app.db.database import get_db
 from app.models.user import User
 from app.schemas.order import OrderCreateRequest, OrderStatusUpdateRequest
+from app.schemas.shipment import OrderTrackingUpdateRequest
+from app.services.authorization_service import AuthorizationService
 from app.services.order_service import OrderService
+from app.services.shipment_service import ShipmentService
 
 router = APIRouter(prefix="/orders", tags=["Orders"])
 
@@ -95,14 +98,55 @@ def get_order_details(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    seller_ids = (
+        AuthorizationService.seller_ids(db, current_user)
+        if current_user.role == "seller"
+        else None
+    )
     order = OrderService.get_order_by_id(
-        db, order_id=order_id,
-        user_id=None if current_user.role == "admin" else current_user.id,
+        db,
+        order_id=order_id,
+        user_id=None if AuthorizationService.is_admin(current_user) else current_user.id,
+        seller_ids=seller_ids,
     )
     return {
         "success": True,
         "message": "Order details retrieved successfully.",
         "data": order.model_dump(),
+    }
+
+
+@router.get("/{order_id}/tracking", status_code=status.HTTP_200_OK)
+def get_order_tracking(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    tracking = ShipmentService.get_order_tracking(db, order_id=order_id, actor=current_user)
+    return {
+        "success": True,
+        "message": "Order tracking retrieved successfully.",
+        "data": tracking.model_dump(),
+    }
+
+
+@router.put("/{order_id}/tracking", status_code=status.HTTP_200_OK)
+def update_order_tracking(
+    order_id: int,
+    request: OrderTrackingUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("admin", "seller")),
+):
+    tracking = ShipmentService.upsert_order_tracking(
+        db,
+        order_id=order_id,
+        payload=request,
+        actor=current_user,
+    )
+    return {
+        "success": True,
+        "message": "Order shipment tracking updated successfully.",
+        "data": tracking.model_dump(),
     }
 
 

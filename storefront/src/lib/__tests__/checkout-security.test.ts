@@ -4,6 +4,7 @@ import type { ApiCart, ApiOrder, ApiProduct, ApiResponse } from "../api";
 import {
   CHECKOUT_PAYMENT_METHODS,
   clearDurableCheckoutKey,
+  completeCardCheckoutConfirmation,
   createCheckoutSubmissionLock,
   DEFAULT_CHECKOUT_PAYMENT_METHOD,
   executeCheckoutOrder,
@@ -196,47 +197,20 @@ describe("Next.js Storefront Checkout, Order, Payment & Coupon Security", () => 
     assert.equal(createOrderCalls, 1);
   });
 
-  it("4. Unverified payment methods are labeled DEMO and never marked paid", async () => {
+  it("4. Supported payment methods are strictly Credit / Debit Card and Cash on Delivery", async () => {
     assert.equal(DEFAULT_CHECKOUT_PAYMENT_METHOD, "Cash on Delivery");
-
-    const codMethod = CHECKOUT_PAYMENT_METHODS.find(
-      (m) => m.id === "Cash on Delivery"
+    assert.deepEqual(
+      CHECKOUT_PAYMENT_METHODS.map((m) => m.id),
+      ["Cash on Delivery", "Credit / Debit Card"]
     );
-    assert.ok(codMethod);
-    assert.equal(codMethod.isDemo, false);
-    assert.equal(codMethod.badge, null);
 
-    for (const demoId of [
-      "KHQR Scan & Pay",
-      "Credit / Debit Card",
-      "Apple Pay",
-    ]) {
-      const method = CHECKOUT_PAYMENT_METHODS.find((m) => m.id === demoId);
-      assert.ok(method, `Missing method ${demoId}`);
-      assert.equal(method.isDemo, true);
-      assert.equal(method.badge, "DEMO");
-
-      // Even if an untrusted payload claimed payment_status="paid", client normalizes to pending
-      const normalized = normalizeServerConfirmedOrder(
-        {
-          success: true,
-          message: "ok",
-          data: buildServerOrder({
-            id: 501,
-            payment_method: demoId,
-            payment_status: "paid",
-          }),
-        },
-        demoId
+    for (const removedId of ["KHQR Scan & Pay", "Apple Pay"]) {
+      assert.equal(
+        CHECKOUT_PAYMENT_METHODS.some((m) => m.id === removedId),
+        false,
+        `${removedId} must not be offered in checkout`
       );
-      assert.equal(normalized.payment_status, "pending");
 
-      const meta = getOrderPaymentPresentation(normalized);
-      assert.equal(meta.isPaid, false);
-      assert.equal(meta.paymentStatusLabel, "Pending Verification");
-      assert.equal(meta.totalLabel, "Order Total");
-
-      // Submission with demo payment method is rejected
       await assert.rejects(
         () =>
           executeCheckoutOrder({
@@ -244,7 +218,7 @@ describe("Next.js Storefront Checkout, Order, Payment & Coupon Security", () => 
             isAuthenticated: true,
             items: [{ productId: 101, quantity: 1 }],
             shippingAddress: "123 Norodom Blvd, Phnom Penh",
-            paymentMethod: demoId,
+            paymentMethod: removedId,
             deps: {
               clearServerCart: async () => ({ success: true, message: "ok", data: null }),
               addServerCartItem: async () => EMPTY_CART_RESPONSE,
@@ -256,9 +230,61 @@ describe("Next.js Storefront Checkout, Order, Payment & Coupon Security", () => 
               clearClientCart: async () => {},
             },
           }),
-        /Live payment gateway capture for this method is not integrated yet/
+        /Unsupported payment method/
       );
     }
+
+    // Unconfigured Credit / Debit Card gateway rejects submission cleanly
+    await assert.rejects(
+      () =>
+        executeCheckoutOrder({
+          lock: createCheckoutSubmissionLock(),
+          isAuthenticated: true,
+          items: [{ productId: 101, quantity: 1 }],
+          shippingAddress: "123 Norodom Blvd, Phnom Penh",
+          paymentMethod: "Credit / Debit Card",
+          cardGatewayConfigured: false,
+          deps: {
+            clearServerCart: async () => ({ success: true, message: "ok", data: null }),
+            addServerCartItem: async () => EMPTY_CART_RESPONSE,
+            createOrder: async () => ({
+              success: true,
+              message: "ok",
+              data: buildServerOrder({ id: 999 }),
+            }),
+            clearClientCart: async () => {},
+          },
+        }),
+      /Live Credit \/ Debit Card gateway is not configured on the server yet/
+    );
+
+    // Configured Credit / Debit Card gateway places order and invokes intent creation
+    let cardIntentOrderId: number | null = null;
+    const cardResult = await executeCheckoutOrder({
+      lock: createCheckoutSubmissionLock(),
+      isAuthenticated: true,
+      items: [{ productId: 101, quantity: 1 }],
+      shippingAddress: "123 Norodom Blvd, Phnom Penh",
+      paymentMethod: "Credit / Debit Card",
+      cardGatewayConfigured: true,
+      deps: {
+        createOrder: async () => ({
+          success: true,
+          message: "ok",
+          data: buildServerOrder({
+            id: 502,
+            payment_method: "Credit / Debit Card",
+            payment_status: "pending",
+          }),
+        }),
+        createCardIntent: async (orderId) => {
+          cardIntentOrderId = orderId;
+        },
+        clearClientCart: async () => {},
+      },
+    });
+    assert.equal(cardResult.status, "confirmed");
+    assert.equal(cardIntentOrderId, 502);
   });
 
   it("5. Invalid or unavailable backend coupons are rejected without local fallback", async () => {
@@ -460,10 +486,36 @@ describe("Next.js Storefront Checkout, Order, Payment & Coupon Security", () => 
     );
     assert.equal(settledCodOrder.payment_status, "paid");
 
-    // Demo methods are properly recorded as demo preview
-    const cardMethod = CHECKOUT_PAYMENT_METHODS.find((pm) => pm.id === "Credit / Debit Card");
-    assert.equal(cardMethod?.isDemo, true);
-    assert.equal(cardMethod?.badge, "DEMO");
+    // Card payment stays pending when gateway is unconfigured, and preserves paid when configured
+    const unconfiguredCard = normalizeServerConfirmedOrder(
+      {
+        success: true,
+        message: "ok",
+        data: buildServerOrder({
+          id: 998,
+          payment_method: "Credit / Debit Card",
+          payment_status: "paid",
+        }),
+      },
+      "Credit / Debit Card",
+      { cardGatewayConfigured: false }
+    );
+    assert.equal(unconfiguredCard.payment_status, "pending");
+
+    const configuredCard = normalizeServerConfirmedOrder(
+      {
+        success: true,
+        message: "ok",
+        data: buildServerOrder({
+          id: 997,
+          payment_method: "Credit / Debit Card",
+          payment_status: "paid",
+        }),
+      },
+      "Credit / Debit Card",
+      { cardGatewayConfigured: true }
+    );
+    assert.equal(configuredCard.payment_status, "paid");
   });
 
   it("9. getOrderPaymentPresentation strictly separates order status from payment status", () => {
@@ -478,15 +530,15 @@ describe("Next.js Storefront Checkout, Order, Payment & Coupon Security", () => 
     assert.equal(deliveredCod.isPaid, false);
     assert.equal(deliveredCod.totalLabel, "Order Total");
 
-    // Case B: Processing KHQR (Demo) remains pending verification
-    const processingKhqr = getOrderPaymentPresentation({
+    // Case B: Pending Card order remains pending verification
+    const pendingCard = getOrderPaymentPresentation({
       status: "processing",
-      payment_method: "KHQR Scan & Pay",
+      payment_method: "Credit / Debit Card",
       payment_status: "pending",
     });
-    assert.equal(processingKhqr.orderStatusLabel, "Processing");
-    assert.equal(processingKhqr.paymentStatusLabel, "Pending Verification");
-    assert.equal(processingKhqr.isPaid, false);
+    assert.equal(pendingCard.orderStatusLabel, "Processing");
+    assert.equal(pendingCard.paymentStatusLabel, "Pending Verification");
+    assert.equal(pendingCard.isPaid, false);
 
     // Case C: Cancelled order preserves Cancelled status
     const cancelledOrder = getOrderPaymentPresentation({
@@ -826,4 +878,108 @@ describe("Server-authoritative COD settlement", () => {
       });
     }
   }
+});
+
+describe("Two-step Stripe Elements card confirmation flow", () => {
+  it("defers cart clearing until Stripe Elements confirmation succeeds", async () => {
+    let clientCartClearedCount = 0;
+    let confirmedCalls = 0;
+
+    const step1 = await executeCheckoutOrder({
+      lock: createCheckoutSubmissionLock(),
+      isAuthenticated: true,
+      items: [{ productId: 101, quantity: 1 }],
+      shippingAddress: "123 Norodom Blvd, Phnom Penh",
+      paymentMethod: "Credit / Debit Card",
+      cardGatewayConfigured: true,
+      deferCartClearForCardConfirmation: true,
+      deps: {
+        createOrder: async () => ({
+          success: true,
+          message: "Order created",
+          data: buildServerOrder({
+            id: 901,
+            payment_method: "Credit / Debit Card",
+            payment_status: "pending",
+          }),
+        }),
+        createCardIntent: async (orderId) => ({
+          success: true,
+          message: "ok",
+          data: {
+            payment_id: 12,
+            transaction_ref: "PAY-000901-TEST",
+            order_id: orderId,
+            payment_intent_id: "pi_test_901",
+            client_secret: "pi_test_901_secret_abc",
+            amount: "50.00",
+            currency: "USD",
+            publishable_key: "pk_test_123",
+          },
+        }),
+        clearClientCart: async () => {
+          clientCartClearedCount += 1;
+        },
+      },
+    });
+
+    assert.equal(step1.status, "requires_card_confirmation");
+    assert.equal(clientCartClearedCount, 0);
+    if (step1.status === "requires_card_confirmation") {
+      assert.equal(step1.cardIntent.payment_intent_id, "pi_test_901");
+      assert.equal(step1.cardIntent.client_secret, "pi_test_901_secret_abc");
+
+      const finalOrder = await completeCardCheckoutConfirmation({
+        order: step1.order,
+        paymentIntentId: step1.cardIntent.payment_intent_id,
+        confirmCardPayment: async (payload) => {
+          confirmedCalls += 1;
+          assert.equal(payload.order_id, 901);
+          assert.equal(payload.payment_intent_id, "pi_test_901");
+          return { success: true, message: "captured", data: {} };
+        },
+        clearClientCart: async () => {
+          clientCartClearedCount += 1;
+        },
+      });
+
+      assert.equal(confirmedCalls, 1);
+      assert.equal(clientCartClearedCount, 1);
+      assert.equal(finalOrder.payment_status, "paid");
+    }
+  });
+
+  it("applies live store shipping thresholds and handles zero-threshold free shipping", () => {
+    const sampleCart: StoreCartItem[] = [
+      {
+        key: "1:default",
+        quantity: 1,
+        product: {
+          id: 1,
+          name: "Mechanical Keyboard",
+          price: 60,
+          discount_price: null,
+          stock: 5,
+          is_active: true,
+        } as ApiProduct,
+      },
+    ];
+
+    const customTotals = getCartTotals(sampleCart, null, {
+      freeShippingThreshold: 120,
+      standardShippingFee: 7.5,
+    });
+    assert.equal(customTotals.shipping, 7.5);
+    assert.equal(customTotals.amountToFreeShipping, 60);
+    assert.equal(customTotals.freeShippingProgress, 50);
+    assert.equal(customTotals.total, 67.5);
+
+    const freeAllTotals = getCartTotals(sampleCart, null, {
+      freeShippingThreshold: 0,
+      standardShippingFee: 7.5,
+    });
+    assert.equal(freeAllTotals.shipping, 0);
+    assert.equal(freeAllTotals.freeShippingProgress, 100);
+    assert.equal(freeAllTotals.total, 60);
+  });
 });

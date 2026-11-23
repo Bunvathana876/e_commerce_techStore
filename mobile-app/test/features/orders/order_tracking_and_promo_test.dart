@@ -32,7 +32,7 @@ void main() {
     couponCode: 'WELCOME10',
     shippingFee: 0.00,
     total: 90.00,
-    paymentMethod: 'ABA / KHQR Pay',
+    paymentMethod: 'Credit / Debit Card',
     paymentStatus: 'paid',
     shippingAddress: 'Bun Vathana (+855 12 345 678)\nBuilding #45, St. 2004, Sen Sok, Phnom Penh, Cambodia',
     createdAt: DateTime.now(),
@@ -147,8 +147,8 @@ void main() {
     });
   });
 
-  group('CheckoutScreen KHQR Demo Preview Modal Tests', () {
-    testWidgets('opens labeled KHQR demo preview modal without simulating payment confirmation', (
+  group('CheckoutScreen Payment Methods Restriction Tests', () {
+    testWidgets('shows strictly Cash on Delivery (COD) and Credit / Debit Card with no KHQR preview', (
       WidgetTester tester,
     ) async {
       tester.view.physicalSize = const Size(1080, 2400);
@@ -173,32 +173,21 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Select ABA / KHQR Pay (index 0) and verify DEMO labeling
-      expect(find.text('DEMO'), findsNWidgets(2));
-      await tester.tap(find.byKey(const Key('payment_method_0')));
+      expect(find.text('ABA / KHQR Pay'), findsNothing);
+      expect(find.text('KHQR Demo Preview (Unverified)'), findsNothing);
+      expect(find.byKey(const Key('open_khqr_modal_button')), findsNothing);
+      expect(find.text('DEMO'), findsNothing);
+      expect(find.text('Cash on Delivery (COD)'), findsOneWidget);
+      expect(find.text('Credit / Debit Card'), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('payment_method_1')));
       await tester.pumpAndSettle();
-
-      expect(find.text('KHQR Demo Preview (Unverified)'), findsOneWidget);
-      expect(find.byKey(const Key('open_khqr_modal_button')), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('open_khqr_modal_button')));
-      await tester.pumpAndSettle();
-
-      // Verify truthful demo preview modal contents and absence of simulated confirmation
-      expect(find.text('DEMO KHQR PREVIEW • UNVERIFIED'), findsOneWidget);
-      expect(find.text('Simulate Scan & Confirm Payment'), findsNothing);
-      expect(find.byKey(const Key('close_khqr_preview')), findsOneWidget);
-
-      await tester.tap(find.byKey(const Key('close_khqr_preview')));
-      await tester.pumpAndSettle();
-
-      // Modal closes without placing an order or clearing cart
       expect(find.byType(OrderSuccessScreen), findsNothing);
       expect(cart.isEmpty, isFalse);
     });
   });
 
-  group('OrderTrackingScreen Live Delivery Tests', () {
+  group('OrderTrackingScreen Real Shipment Tracking Tests', () {
     testWidgets('navigates to OrderTrackingScreen from OrderSuccessScreen', (
       WidgetTester tester,
     ) async {
@@ -214,7 +203,7 @@ void main() {
           theme: AppTheme.lightTheme,
           home: OrderSuccessScreen(
             grandTotal: 90.0,
-            paymentMethod: 'ABA / KHQR Pay',
+            paymentMethod: 'Credit / Debit Card',
             addressCity: 'Phnom Penh',
             orderId: testOrder.formattedOrderId,
             order: testOrder,
@@ -226,35 +215,19 @@ void main() {
 
       expect(find.byKey(const Key('track_delivery_button')), findsOneWidget);
 
-      // Tap Track Live Delivery
       await tester.tap(find.byKey(const Key('track_delivery_button')));
       await tester.pumpAndSettle();
 
-      // Verifies OrderTrackingScreen elements
+      // Verifies real OrderTrackingScreen elements with zero fabricated GPS or driver data
       expect(find.byType(OrderTrackingScreen), findsOneWidget);
-      expect(find.text('Live Delivery Tracking'), findsOneWidget);
-      expect(find.text('Live GPS Connected'), findsOneWidget);
-      expect(find.text('Sokha Rith'), findsOneWidget);
-      expect(find.text('Honda PCX 160 • Phnom Penh 1KF-8822'), findsOneWidget);
-      expect(find.byKey(const Key('call_driver_button')), findsOneWidget);
-      expect(find.byKey(const Key('message_driver_button')), findsOneWidget);
-
-      // Tap Call Driver
-      await tester.tap(find.byKey(const Key('call_driver_button')));
-      await tester.pump();
-      expect(find.textContaining('Calling driver Sokha Rith'), findsOneWidget);
-
-      // Tap Message Driver
-      await tester.tap(find.byKey(const Key('message_driver_button')));
-      await tester.pumpAndSettle();
-      expect(find.text('Quick Note to Driver'), findsOneWidget);
-      expect(find.byKey(const Key('quick_note_0')), findsOneWidget);
-
-      // Tap a quick note
-      await tester.tap(find.byKey(const Key('quick_note_0')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(find.textContaining('Note sent to Sokha'), findsOneWidget);
+      expect(find.text('Order Tracking'), findsOneWidget);
+      expect(find.text('Shipment Details'), findsOneWidget);
+      expect(find.text('Tracking Timeline'), findsOneWidget);
+      expect(find.text('Package Summary'), findsOneWidget);
+      expect(find.text('Live GPS Connected'), findsNothing);
+      expect(find.text('Sokha Rith'), findsNothing);
+      expect(find.byKey(const Key('call_driver_button')), findsNothing);
+      expect(find.byKey(const Key('message_driver_button')), findsNothing);
     });
 
     testWidgets('navigates to OrderTrackingScreen from OrderDetailScreen', (

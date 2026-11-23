@@ -2,6 +2,8 @@ from datetime import datetime
 from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.shipment import OrderShipmentSummary
+
 
 class OrderUserSummary(BaseModel):
     id: int
@@ -65,6 +67,7 @@ class OrderResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     items: list[OrderItemResponse] = []
+    shipment: OrderShipmentSummary | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -77,6 +80,50 @@ class OrderStatusUpdateRequest(BaseModel):
         max_length=500,
         description="Audit reason or receipt reference for manual cash settlement or refund.",
     )
+
+
+class SellerOrderResponse(OrderResponse):
+    seller_items: list[OrderItemResponse] = []
+    seller_subtotal: Decimal = Decimal("0.00")
+    can_update_status: bool = False
+
+
+class SellerOrderPaginationResponse(BaseModel):
+    items: list[SellerOrderResponse]
+    total: int
+    page: int
+    limit: int
+    total_pages: int
+
+
+class SellerDashboardLowStockProduct(BaseModel):
+    id: int
+    name: str
+    price: Decimal
+    stock: int
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class SellerDashboardResponse(BaseModel):
+    seller_id: int
+    store_name: str
+    store_status: str
+    rating: Decimal
+    total_products: int
+    active_products: int
+    low_stock_products_count: int
+    out_of_stock_products_count: int
+    total_orders: int
+    pending_orders: int
+    processing_orders: int
+    shipped_orders: int
+    delivered_orders: int
+    cancelled_orders: int
+    gross_revenue: Decimal
+    recent_orders: list[SellerOrderResponse] = []
+    low_stock_items: list[SellerDashboardLowStockProduct] = []
 
 
 

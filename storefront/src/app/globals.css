@@ -380,6 +380,18 @@
   }
 }
 
+/* Native modal dialog overscroll containment */
+dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog::backdrop {
+  overflow: hidden;
+  overscroll-behavior: contain;
+  background-color: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+}
+
 /* Hide scrollbar for horizontal chip rows while preserving touch scroll */
 .no-scrollbar::-webkit-scrollbar {
   display: none;

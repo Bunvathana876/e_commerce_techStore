@@ -81,18 +81,54 @@ class ReviewService:
                 detail=f"Product #{product_id} not found.",
             )
 
+        existing_review = db.scalar(
+            select(Review.id).where(
+                Review.user_id == user_id,
+                Review.product_id == product_id,
+            )
+        )
+        if existing_review is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="You have already reviewed this product.",
+            )
+
+        verified_order_id: int | None = None
         if request.order_id is not None:
-            owned_order = db.scalar(select(Order.id).join(OrderItem).where(
-                Order.id == request.order_id, Order.user_id == user_id,
-                OrderItem.product_id == product_id,
-            ))
+            owned_order = db.scalar(
+                select(Order.id)
+                .join(OrderItem)
+                .where(
+                    Order.id == request.order_id,
+                    Order.user_id == user_id,
+                    Order.status != "cancelled",
+                    OrderItem.product_id == product_id,
+                )
+            )
             if owned_order is None:
                 raise HTTPException(status_code=404, detail="Order item not found.")
+            verified_order_id = owned_order
+        else:
+            verified_order_id = db.scalar(
+                select(Order.id)
+                .join(OrderItem)
+                .where(
+                    Order.user_id == user_id,
+                    Order.status != "cancelled",
+                    OrderItem.product_id == product_id,
+                )
+                .order_by(Order.id.desc())
+            )
+            if verified_order_id is None:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Only customers who have purchased this product can submit a review.",
+                )
 
         new_review = Review(
             product_id=product_id,
             user_id=user_id,
-            order_id=request.order_id,
+            order_id=verified_order_id,
             rating=request.rating,
             comment=request.comment.strip(),
             status="pending",

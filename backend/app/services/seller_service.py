@@ -1,8 +1,10 @@
 from decimal import Decimal
+import secrets
 from fastapi import HTTPException, status
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.password_policy import validate_password_strength
 from app.core.security import hash_password
 from app.models.seller import Seller
 from app.models.user import User
@@ -43,21 +45,31 @@ class SellerService:
 
     @staticmethod
     def create_seller(db: Session, data: SellerCreate) -> Seller:
-        existing = db.scalar(select(Seller).where(Seller.email == data.email))
+        clean_email = data.email.lower().strip()
+        existing = db.scalar(select(Seller).where(func.lower(Seller.email) == clean_email))
         if existing:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="A seller with this email already exists.",
             )
 
-        # Check or create associated User account
-        user_id = None
-        user = db.scalar(select(User).where(User.email == data.email))
+        # Check or create associated User account without hardcoded credentials
+        user = db.scalar(select(User).where(func.lower(User.email) == clean_email))
         if not user:
-            pwd = data.password if data.password else "Seller123!"
+            raw_pwd = (data.password or "").strip()
+            if raw_pwd:
+                is_valid, error_msg = validate_password_strength(raw_pwd)
+                if not is_valid:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=error_msg or "Password does not meet security policy requirements.",
+                    )
+                pwd = raw_pwd
+            else:
+                pwd = f"{secrets.token_urlsafe(18)}!A9a"
             user = User(
-                name=data.owner_name,
-                email=data.email,
+                name=data.owner_name.strip(),
+                email=clean_email,
                 phone=data.phone,
                 password_hash=hash_password(pwd),
                 role="seller",
@@ -67,13 +79,16 @@ class SellerService:
             db.flush()
             user_id = user.id
         else:
+            if user.role == "customer":
+                user.role = "seller"
+                db.flush()
             user_id = user.id
 
         seller = Seller(
             user_id=user_id,
-            name=data.name,
-            owner_name=data.owner_name,
-            email=data.email,
+            name=data.name.strip(),
+            owner_name=data.owner_name.strip(),
+            email=clean_email,
             phone=data.phone,
             address=data.address,
             description=data.description,

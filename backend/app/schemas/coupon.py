@@ -29,6 +29,7 @@ class CouponResponse(BaseModel):
     is_active: bool
     expires_at: datetime | None = None
     usage_limit: int | None = None
+    per_user_limit: int | None = None
     used_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
@@ -44,6 +45,7 @@ class CouponCreateRequest(BaseModel):
     is_active: bool = True
     expires_at: datetime | None = None
     usage_limit: int | None = Field(default=None, ge=1)
+    per_user_limit: int | None = Field(default=None, ge=1)
 
 
 class CouponUpdateRequest(BaseModel):
@@ -55,3 +57,4 @@ class CouponUpdateRequest(BaseModel):
     is_active: bool | None = None
     expires_at: datetime | None = None
     usage_limit: int | None = Field(default=None, ge=1)
+    per_user_limit: int | None = Field(default=None, ge=1)

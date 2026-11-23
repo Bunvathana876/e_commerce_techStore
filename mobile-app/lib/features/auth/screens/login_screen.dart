@@ -9,7 +9,6 @@ import '../../../shared/widgets/app_logo.dart';
 import '../../../shared/widgets/bouncing_button.dart';
 import '../../../shared/widgets/custom_text_field.dart';
 import '../providers/auth_provider.dart';
-import '../widgets/social_login_section.dart';
 import 'sign_up_screen.dart';
 
 // Minimalist sign in screen
@@ -62,18 +61,6 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     }
-  }
-
-  // Social OAuth is not configured on the backend; never store fabricated tokens
-  void _handleSocialLogin(String provider) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '$provider sign-in is not configured yet. Please sign in with email.',
-        ),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   void _navigateToSignUp() {
@@ -241,14 +228,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     alignment: Alignment.centerLeft,
                     child: GestureDetector(
                       onTap: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Password reset instructions sent to your email.',
-                            ),
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
+                        Navigator.pushNamed(context, AppRoutes.forgotPassword);
                       },
                       behavior: HitTestBehavior.opaque,
                       child: Text(
@@ -312,11 +292,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                     ),
                   ),
-                  const SizedBox(height: 28),
-
-                  // Social Login Section with direct mock sign in
-                  SocialLoginSection(onProviderSelected: _handleSocialLogin),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
 
                   // Legal / Footer notice
                   Center(

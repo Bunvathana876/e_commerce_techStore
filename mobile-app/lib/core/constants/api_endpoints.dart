@@ -226,6 +226,15 @@ class ApiEndpoints {
   static const String logout = '/api/v1/auth/logout';
   static const String me = '/api/v1/auth/me';
   static const String refreshToken = '/api/v1/auth/refresh';
+  static const String forgotPassword = '/api/v1/auth/forgot-password';
+  static const String validateResetToken = '/api/v1/auth/reset-password/validate';
+  static const String resetPassword = '/api/v1/auth/reset-password';
+
+  // Public store settings & payment endpoints
+  static const String publicSettings = '/api/v1/settings/public';
+  static const String paymentsConfig = '/api/v1/payments/config';
+  static const String paymentCardIntent = '/api/v1/payments/card/intent';
+  static const String paymentCardConfirm = '/api/v1/payments/card/confirm';
 
   // Products endpoints
   static const String products = '/api/v1/products';
@@ -252,6 +261,7 @@ class ApiEndpoints {
   // Orders endpoints
   static const String orders = '/api/v1/orders';
   static String orderDetail(int id) => '/api/v1/orders/$id';
+  static String orderTracking(int id) => '/api/v1/orders/$id/tracking';
 
   // Reviews endpoints
   static const String reviews = '/api/v1/reviews';

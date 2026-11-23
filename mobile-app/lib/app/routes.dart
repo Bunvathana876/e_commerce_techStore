@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../features/auth/screens/auth_welcome_screen.dart';
+import '../features/auth/screens/forgot_password_screen.dart';
 import '../features/auth/screens/login_screen.dart';
 import '../features/auth/screens/sign_up_screen.dart';
 import '../features/navigation/main_navigation_screen.dart';
@@ -13,6 +14,7 @@ class AppRoutes {
   static const String welcome = '/welcome';
   static const String login = '/login';
   static const String signUp = '/sign-up';
+  static const String forgotPassword = '/forgot-password';
   static const String mainNav = '/main-nav';
   static const String settings = '/settings';
   static const String orderHistory = '/orders';
@@ -22,6 +24,7 @@ class AppRoutes {
     welcome: (context) => const AuthWelcomeScreen(),
     login: (context) => const LoginScreen(),
     signUp: (context) => const SignUpScreen(),
+    forgotPassword: (context) => const ForgotPasswordScreen(),
     mainNav: (context) => const MainNavigationScreen(),
     settings: (context) => const SettingsScreen(),
     orderHistory: (context) => const OrderHistoryScreen(),

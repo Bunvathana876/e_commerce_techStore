@@ -1,3 +1,5 @@
+> **Deprecation Notice:** `web-app/` is the legacy monolithic Next.js frontend and is **not** deployed by `docker-compose.yml`, `run.sh`, or `deploy/production/compose.yaml`. Active web development uses [`../storefront/`](../storefront) (`http://localhost:3000`, customer storefront) and [`../management/`](../management) (`http://localhost:3001`, admin & seller portal).
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

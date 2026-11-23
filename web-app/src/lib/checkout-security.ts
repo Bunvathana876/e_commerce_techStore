@@ -25,44 +25,55 @@ export const CHECKOUT_PAYMENT_METHODS: readonly CheckoutPaymentMethodMeta[] = [
     badge: null,
   },
   {
-    id: "KHQR Scan & Pay",
-    title: "KHQR / Bakong Pay",
-    subtitle: "Demo only — live KHQR verification is not integrated yet",
-    isDemo: true,
-    badge: "DEMO",
-  },
-  {
     id: "Credit / Debit Card",
     title: "Credit or Debit Card",
-    subtitle: "Demo only — live card gateway is not integrated yet",
-    isDemo: true,
-    badge: "DEMO",
-  },
-  {
-    id: "Apple Pay",
-    title: "Apple Pay / Wallet",
-    subtitle: "Demo only — live wallet authorization is not integrated yet",
-    isDemo: true,
-    badge: "DEMO",
+    subtitle: "Pay securely with Visa or Mastercard",
+    isDemo: false,
+    badge: null,
   },
 ];
 
-const UNVERIFIED_CLIENT_PAYMENT_METHODS = new Set([
+const SUPPORTED_CHECKOUT_METHODS = new Set([
+  "cash on delivery",
+  "cash on delivery (cod)",
+  "cod",
   "credit / debit card",
   "credit or debit card",
+  "credit card",
+  "debit card",
   "card",
-  "khqr scan & pay",
-  "khqr",
-  "apple pay",
 ]);
+
+export function isSupportedCheckoutPaymentMethod(
+  method?: string | null
+): boolean {
+  const normalized = (method || "").trim().toLowerCase();
+  return Boolean(normalized && SUPPORTED_CHECKOUT_METHODS.has(normalized));
+}
+
+export function isCardPaymentMethod(method?: string | null): boolean {
+  const normalized = (method || "").trim().toLowerCase();
+  return (
+    normalized === "credit / debit card" ||
+    normalized === "credit or debit card" ||
+    normalized === "credit card" ||
+    normalized === "debit card" ||
+    normalized === "card"
+  );
+}
 
 export function isUnverifiedPaymentMethod(method?: string | null): boolean {
   const normalized = (method || "").trim().toLowerCase();
   if (!normalized) return true;
-  if (UNVERIFIED_CLIENT_PAYMENT_METHODS.has(normalized)) return true;
-  return CHECKOUT_PAYMENT_METHODS.some(
-    (pm) => pm.id.toLowerCase() === normalized && pm.isDemo
-  );
+  if (
+    normalized === "cash on delivery" ||
+    normalized === "cash on delivery (cod)" ||
+    normalized === "cod" ||
+    isCardPaymentMethod(normalized)
+  ) {
+    return false;
+  }
+  return true;
 }
 
 export function isNetworkTransportError(err: unknown): boolean {
@@ -326,6 +337,12 @@ export async function executeCheckoutOrder(
     if (!params.isAuthenticated) {
       throw new Error(
         "Please sign in to place your order. Guest checkout is not available."
+      );
+    }
+
+    if (!isSupportedCheckoutPaymentMethod(params.paymentMethod)) {
+      throw new Error(
+        "Unsupported payment method. Only Credit / Debit Card and Cash on Delivery are accepted."
       );
     }
 

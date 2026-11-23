@@ -9,7 +9,6 @@ import '../../../shared/widgets/app_logo.dart';
 import '../../../shared/widgets/bouncing_button.dart';
 import '../../../shared/widgets/custom_text_field.dart';
 import '../providers/auth_provider.dart';
-import '../widgets/social_login_section.dart';
 import 'login_screen.dart';
 
 // Minimalist sign up registration screen
@@ -82,18 +81,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
         ),
       );
     }
-  }
-
-  // Social OAuth is not configured on the backend; never store fabricated tokens
-  void _handleSocialLogin(String provider) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '$provider sign-up is not configured yet. Please register with email.',
-        ),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
   }
 
   void _navigateToLogin() {
@@ -349,11 +336,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ),
                     ),
                   ),
-                  const SizedBox(height: 28),
-
-                  // Social Login Section with frictionless onboarding
-                  SocialLoginSection(onProviderSelected: _handleSocialLogin),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 24),
 
                   // Legal / Footer notice
                   Center(

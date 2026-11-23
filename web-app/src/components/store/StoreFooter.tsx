@@ -240,7 +240,7 @@ export default function StoreFooter() {
           <p>© {new Date().getFullYear()} Blue Panda Marketplace. All rights reserved.</p>
           <div className="flex items-center gap-4">
             <span className="inline-flex items-center gap-1.5 text-slate-400">
-              <CreditCard size={14} /> Visa • Mastercard • KHQR • Apple Pay • COD
+              <CreditCard size={14} /> Visa • Mastercard • Credit / Debit Card • Cash on Delivery
             </span>
           </div>
         </div>

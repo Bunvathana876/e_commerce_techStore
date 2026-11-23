@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
@@ -6,10 +6,19 @@ from app.core.config import settings
 from app.core.auth_errors import AuthSessionError, SensitiveAuthRoute
 from app.core.dependencies import get_current_user, security_scheme
 from app.core.security import decode_access_token
-from app.core.rate_limit import RateLimiter
+from app.core.rate_limit import RateLimiter, get_rate_limiter_manager
 from app.db.database import get_db
 from app.models.user import User
-from app.schemas.auth import ChangePasswordRequest, LoginRequest, RegisterRequest, RefreshTokenRequest, RefreshTokenResponse
+from app.schemas.auth import (
+    ChangePasswordRequest,
+    ForgotPasswordRequest,
+    LoginRequest,
+    RefreshTokenRequest,
+    RefreshTokenResponse,
+    RegisterRequest,
+    ResetPasswordRequest,
+    ResetPasswordValidateRequest,
+)
 from app.schemas.user import UserResponse, UserUpdate
 from app.services.auth_service import AuthService
 from app.services.auth_session_service import AuthSessionService
@@ -142,5 +151,62 @@ def logout_all(current_user: User = Depends(get_current_user), db: Session = Dep
     AuthSessionService.revoke_all(db, user, "logout_all")
     db.commit()
     return {"success": True, "message": "All sessions logged out successfully."}
+
+
+@router.post(
+    "/forgot-password",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=settings.RATE_LIMIT_AUTH_PASSWORD_RESET, seconds=60, scope="auth:forgot_password"))],
+)
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    http_request: Request,
+    db: Session = Depends(get_db),
+):
+    client_ip = get_rate_limiter_manager().ip_resolver.resolve_client_ip(http_request)
+    ttl_minutes = AuthService.request_password_reset(
+        db,
+        payload.email,
+        client=payload.client,
+        requested_ip=client_ip,
+    )
+    return {
+        "success": True,
+        "message": "If an active account exists for that email, password reset instructions have been sent.",
+        "data": {"expires_in_minutes": ttl_minutes},
+    }
+
+
+@router.post(
+    "/reset-password/validate",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=settings.RATE_LIMIT_AUTH_PASSWORD_RESET, seconds=60, scope="auth:reset_validate"))],
+)
+def validate_reset_token(
+    payload: ResetPasswordValidateRequest,
+    db: Session = Depends(get_db),
+):
+    is_valid = AuthService.validate_password_reset_token(db, payload.token)
+    return {
+        "success": True,
+        "message": "Reset token checked.",
+        "data": {"valid": is_valid},
+    }
+
+
+@router.post(
+    "/reset-password",
+    status_code=status.HTTP_200_OK,
+    dependencies=[Depends(RateLimiter(times=settings.RATE_LIMIT_AUTH_PASSWORD_RESET, seconds=60, scope="auth:reset_password"))],
+)
+def reset_password(
+    payload: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+):
+    AuthService.reset_password(db, payload.token, payload.new_password)
+    return {
+        "success": True,
+        "message": "Password has been reset successfully. Please sign in with your new password.",
+    }
 
 

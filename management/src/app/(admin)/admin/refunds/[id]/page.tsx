@@ -1,271 +1,279 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import {
-  ArrowLeft,
-  Check,
-  RotateCcw,
-  User,
-  ShoppingCart,
-  Loader2,
-  AlertCircle,
-  CheckCircle2,
-} from "lucide-react";
-import { ordersApi, ApiOrder } from "@/lib/api";
+import { AlertCircle, ArrowLeft, CheckCircle2, RotateCcw } from "lucide-react";
+import { refundsApi, type ApiRefund } from "@/lib/api";
 
 export default function RefundDetailPage() {
-  const params = useParams();
-  const id = params.id as string;
-  const orderId = parseInt(id.replace(/^REF-/, ""), 10);
+  const params = useParams<{ id: string }>();
+  const identifier = decodeURIComponent(params?.id || "");
 
-  const [order, setOrder] = useState<ApiOrder | null>(null);
+  const [refund, setRefund] = useState<ApiRefund | null>(null);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
-  const [notification, setNotification] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [externalRef, setExternalRef] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const loadRefundOrder = useCallback(async () => {
-    if (isNaN(orderId)) {
-      setNotification({ type: "error", text: "Invalid refund ID format." });
-      setLoading(false);
-      return;
-    }
-
+  const loadRefund = useCallback(async () => {
+    if (!identifier) return;
     setLoading(true);
+    setError(null);
     try {
-      const res = await ordersApi.get(orderId);
-      if (res.success && res.data) {
-        setOrder(res.data);
-      } else {
-        setNotification({
-          type: "error",
-          text: res.message || "Refund order record not found.",
-        });
-      }
-    } catch (err: any) {
-      setNotification({
-        type: "error",
-        text: err.message || "Failed to load refund details from PostgreSQL.",
-      });
+      const res = await refundsApi.getById(identifier);
+      setRefund(res.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Refund record not found.");
     } finally {
       setLoading(false);
     }
-  }, [orderId]);
+  }, [identifier]);
 
   useEffect(() => {
-    loadRefundOrder();
-  }, [loadRefundOrder]);
+    void loadRefund();
+  }, [loadRefund]);
 
-  const handleUpdateStatus = async (newStatus: string) => {
-    setUpdating(true);
-    setNotification(null);
+  const handleAction = async (action: "approve" | "process" | "reject") => {
+    if (!refund) return;
+    setBusy(true);
+    setError(null);
+    setFeedback(null);
     try {
-      const res = await ordersApi.updateStatus(orderId, { status: newStatus });
-      if (res.success && res.data) {
-        setOrder(res.data);
-        setNotification({
-          type: "success",
-          text: `Refund status updated to "${newStatus}" in PostgreSQL database!`,
+      if (action === "approve") {
+        const res = await refundsApi.approve(refund.refund_number);
+        setRefund(res.data);
+        setFeedback("Refund approved and accrued in GL.");
+      } else if (action === "process") {
+        const res = await refundsApi.process(refund.refund_number, {
+          external_reference: externalRef.trim() || undefined,
         });
+        setRefund(res.data);
+        setFeedback("Refund processed and settled in GL.");
+      } else {
+        if (rejectReason.trim().length < 3) {
+          setError("Enter a rejection reason (minimum 3 characters).");
+          setBusy(false);
+          return;
+        }
+        const res = await refundsApi.reject(refund.refund_number, {
+          reason: rejectReason.trim(),
+        });
+        setRefund(res.data);
+        setFeedback("Refund request rejected.");
       }
-    } catch (err: any) {
-      setNotification({
-        type: "error",
-        text: err.message || "Failed to update refund status in database.",
-      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Action '${action}' failed.`);
     } finally {
-      setUpdating(false);
+      setBusy(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="py-24 flex flex-col items-center justify-center text-[#7699F0]">
-        <Loader2 size={36} className="animate-spin mb-3" />
-        <p className="text-sm font-medium text-gray-600">
-          Loading refund details from PostgreSQL...
-        </p>
-      </div>
-    );
-  }
-
-  if (!order) {
-    return (
-      <div className="max-w-xl mx-auto py-20 text-center space-y-4">
-        <div className="w-14 h-14 bg-red-50 text-red-600 rounded-2xl flex items-center justify-center mx-auto">
-          <AlertCircle size={28} />
-        </div>
-        <h2 className="text-xl font-bold text-gray-900">Refund Record Not Found</h2>
-        <p className="text-sm text-gray-500">
-          The refund record for {id} was not found in PostgreSQL.
-        </p>
-        <Link
-          href="/admin/refunds"
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#7699F0] text-white rounded-xl text-sm font-semibold hover:bg-blue-600 transition"
-        >
-          <ArrowLeft size={16} /> Back to Refunds
-        </Link>
-      </div>
-    );
-  }
-
-  const isProcessed = order.status === "cancelled" || order.payment_status === "refunded";
-  const statusDisplay = isProcessed ? "Completed" : "Pending";
-  const amount = Number(order.total) || 0;
-  const dateObj = new Date(order.created_at);
-
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-10">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link
-            href="/admin/refunds"
-            className="p-2.5 rounded-xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition"
-          >
-            <ArrowLeft size={18} />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Refund Details</h1>
-            <p className="text-sm text-gray-500 mt-0.5">REF-{order.id}</p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {!isProcessed ? (
-            <>
-              <button
-                onClick={() => handleUpdateStatus("processing")}
-                disabled={updating}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition"
-              >
-                Mark Under Review
-              </button>
-              <button
-                onClick={() => handleUpdateStatus("cancelled")}
-                disabled={updating}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-xl hover:bg-emerald-700 transition"
-              >
-                {updating ? <Loader2 size={16} className="animate-spin" /> : <Check size={16} />}
-                Approve & Refund
-              </button>
-            </>
-          ) : (
-            <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <CheckCircle2 size={14} /> Refund Settled in PostgreSQL
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Notification */}
-      {notification && (
-        <div
-          className={`flex items-center gap-2 p-4 rounded-xl text-sm border ${
-            notification.type === "success"
-              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-              : "bg-red-50 border-red-200 text-red-800"
-          }`}
-        >
-          {notification.type === "success" ? (
-            <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
-          ) : (
-            <AlertCircle size={18} className="text-red-600 flex-shrink-0" />
-          )}
-          <span>{notification.text}</span>
-        </div>
-      )}
-
-      {/* Status Banner */}
-      <div
-        className={`rounded-2xl border p-5 flex items-center justify-between ${
-          statusDisplay === "Completed"
-            ? "bg-emerald-50 border-emerald-100 text-emerald-800"
-            : "bg-amber-50 border-amber-100 text-amber-800"
-        }`}
+    <div className="space-y-6 max-w-5xl">
+      <Link
+        href="/admin/refunds"
+        className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900"
       >
-        <div className="flex items-center gap-3">
-          <RotateCcw size={22} />
-          <div>
-            <p className="font-semibold text-base">Refund {statusDisplay}</p>
-            <p className="text-xs opacity-75">
-              Order status: {order.status} · Recorded {dateObj.toLocaleDateString()}
-            </p>
-          </div>
-        </div>
-        <p className="text-2xl font-bold">-${amount.toFixed(2)}</p>
-      </div>
+        <ArrowLeft size={16} />
+        Back to Refunds & Accounting Ledger
+      </Link>
 
-      {/* Order & Customer Details Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Customer info */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <User size={18} className="text-[#7699F0]" />
-            <h2 className="font-semibold text-gray-900">Customer</h2>
-          </div>
-          <div className="text-sm space-y-1">
-            <p className="font-medium text-gray-900">
-              {order.user?.name || `Customer #${order.user_id}`}
-            </p>
-            <p className="text-gray-500">{order.user?.email || "No email"}</p>
-            <p className="text-gray-500">{order.user?.phone || "No phone"}</p>
-          </div>
+      {loading ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-8 text-sm text-slate-500">
+          Loading refund audit record...
         </div>
-
-        {/* Order link */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <ShoppingCart size={18} className="text-[#7699F0]" />
-              <h2 className="font-semibold text-gray-900">Related Order</h2>
-            </div>
-            <Link
-              href={`/admin/orders/${order.id}`}
-              className="text-xs font-semibold text-[#7699F0] hover:underline"
-            >
-              View Order →
-            </Link>
-          </div>
-          <div className="text-sm space-y-1">
-            <p className="font-mono text-gray-900">#{order.id}</p>
-            <p className="text-gray-500">Method: {order.payment_method || "ABA Bank"}</p>
-            <p className="text-gray-500">
-              Delivery: {order.shipping_address || "Standard shipping"}
-            </p>
-          </div>
+      ) : error && !refund ? (
+        <div className="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-rose-700 text-sm flex items-center gap-2">
+          <AlertCircle size={18} />
+          <span>{error}</span>
         </div>
-      </div>
-
-      {/* Order Items */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
-        <h2 className="font-semibold text-gray-900">Order Items</h2>
-        <div className="divide-y divide-gray-100">
-          {(order.items && order.items.length > 0) ? (
-            order.items.map((item, index) => (
-              <div key={index} className="flex justify-between py-3 text-sm">
-                <div>
-                  <p className="font-medium text-gray-900">
-                    {item.product_name || `Product #${item.product_id}`}
-                  </p>
-                  <p className="text-xs text-gray-400">Qty: {item.quantity}</p>
+      ) : refund ? (
+        <>
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+                  <RotateCcw size={22} />
                 </div>
-                <p className="font-semibold text-gray-900">
-                  ${(Number(item.price) * item.quantity).toFixed(2)}
-                </p>
+                <div>
+                  <h1 className="text-xl font-bold font-mono text-slate-900">
+                    {refund.refund_number}
+                  </h1>
+                  <p className="text-xs text-slate-500">
+                    Requested {new Date(refund.requested_at).toLocaleString()}
+                  </p>
+                </div>
               </div>
-            ))
-          ) : (
-            <div className="py-4 text-sm text-gray-500 text-center">
-              Order items recorded under Order #{order.id}
+              <div className="text-right">
+                <p className="text-2xl font-bold text-slate-900">
+                  ${Number(refund.amount).toFixed(2)} {refund.currency}
+                </p>
+                <span className="inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-800 capitalize mt-1">
+                  {refund.status}
+                </span>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
+
+            {feedback && (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                <CheckCircle2 size={15} />
+                {feedback}
+              </div>
+            )}
+
+            {error && (
+              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle size={15} />
+                {error}
+              </div>
+            )}
+
+            <dl className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+              <div className="p-3.5 bg-slate-50 rounded-xl">
+                <dt className="text-xs text-slate-500">Order</dt>
+                <dd className="font-semibold text-blue-600 mt-1">
+                  <Link href={`/admin/orders/${refund.order_id}`} className="hover:underline">
+                    Order #{refund.order_id} (${Number(refund.order_total || 0).toFixed(2)})
+                  </Link>
+                </dd>
+              </div>
+              <div className="p-3.5 bg-slate-50 rounded-xl">
+                <dt className="text-xs text-slate-500">Customer</dt>
+                <dd className="font-semibold text-slate-900 mt-1">
+                  {refund.customer_name || "Customer"}{" "}
+                  {refund.customer_email ? `(${refund.customer_email})` : ""}
+                </dd>
+              </div>
+              <div className="p-3.5 bg-slate-50 rounded-xl">
+                <dt className="text-xs text-slate-500">Method & Restock</dt>
+                <dd className="font-semibold text-slate-900 mt-1">
+                  {refund.refund_method} ({refund.restocked ? "Restocked" : refund.restock_items ? "Will restock" : "No restock"})
+                </dd>
+              </div>
+              <div className="p-3.5 bg-slate-50 rounded-xl sm:col-span-2 lg:col-span-3">
+                <dt className="text-xs text-slate-500">Reason</dt>
+                <dd className="font-medium text-slate-900 mt-1">{refund.reason}</dd>
+              </div>
+            </dl>
+
+            {(refund.status === "requested" || refund.status === "approved") && (
+              <div className="pt-3 border-t border-slate-100 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  {refund.status === "requested" && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void handleAction("approve")}
+                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold cursor-pointer"
+                    >
+                      Approve & Accrue GL
+                    </button>
+                  )}
+                  {refund.status === "approved" && (
+                    <>
+                      <input
+                        type="text"
+                        value={externalRef}
+                        onChange={(e) => setExternalRef(e.target.value)}
+                        placeholder="Optional Stripe / bank ref"
+                        className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                      />
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void handleAction("process")}
+                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold cursor-pointer"
+                      >
+                        Settle & Post GL
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="Rejection reason..."
+                    className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
+                  />
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void handleAction("reject")}
+                    className="px-3.5 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-semibold cursor-pointer"
+                  >
+                    Reject
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100">
+              <h2 className="font-bold text-slate-900">
+                Accounting Journal Postings ({refund.ledger_entries.length})
+              </h2>
+            </div>
+            {refund.ledger_entries.length === 0 ? (
+              <div className="p-6 text-sm text-slate-500">
+                No accounting entries posted yet (posted automatically on Approve & Process).
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase font-semibold">
+                    <tr>
+                      <th className="px-4 py-3">Journal Ref</th>
+                      <th className="px-4 py-3">Account</th>
+                      <th className="px-4 py-3">Type</th>
+                      <th className="px-4 py-3 text-right">Debit</th>
+                      <th className="px-4 py-3 text-right">Credit</th>
+                      <th className="px-4 py-3">Memo</th>
+                      <th className="px-4 py-3">Posted At</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {refund.ledger_entries.map((entry) => (
+                      <tr key={entry.id}>
+                        <td className="px-4 py-3 font-mono font-semibold text-slate-900">
+                          {entry.journal_ref}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="font-mono font-semibold text-blue-700">
+                            {entry.account_code}
+                          </span>{" "}
+                          {entry.account_name}
+                        </td>
+                        <td className="px-4 py-3 capitalize">{entry.entry_type}</td>
+                        <td className="px-4 py-3 text-right font-semibold text-emerald-700">
+                          {Number(entry.debit_amount) > 0
+                            ? `$${Number(entry.debit_amount).toFixed(2)}`
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-3 text-right font-semibold text-rose-700">
+                          {Number(entry.credit_amount) > 0
+                            ? `$${Number(entry.credit_amount).toFixed(2)}`
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-3 text-slate-600">{entry.memo || "-"}</td>
+                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                          {new Date(entry.created_at).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }

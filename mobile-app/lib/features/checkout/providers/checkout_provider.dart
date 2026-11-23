@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_exceptions.dart';
 import '../../auth/providers/auth_provider.dart';
 import '../../orders/models/order_model.dart';
@@ -6,24 +7,35 @@ import '../../orders/services/order_api_service.dart';
 import '../models/address_model.dart';
 import '../services/address_service.dart';
 import '../services/checkout_attempt_store.dart';
+import '../services/stripe_payment_gateway.dart';
 
 class CheckoutProvider extends ChangeNotifier {
   final OrderApiService orders;
   final AddressService _addresses;
   final CheckoutAttemptStore _attempts;
+  final StripePaymentGateway _stripeGateway;
   bool _disposed = false;
   int? _authEpoch;
   int? _userId;
   bool isLoading = false;
   bool isSubmitting = false;
+  bool cardGatewayChecked = false;
+  bool cardGatewayConfigured = false;
+  bool enableCardPayment = true;
+  bool enableCodPayment = true;
+  String? stripePublishableKey;
   String? error;
   List<AddressModel> addresses = [];
   AddressModel? selectedAddress;
   CheckoutAttempt? pending;
 
-  CheckoutProvider({required this.orders, CheckoutAttemptStore? attempts})
-    : _addresses = AddressService(client: orders.client),
-      _attempts = attempts ?? CheckoutAttemptStore() {
+  CheckoutProvider({
+    required this.orders,
+    CheckoutAttemptStore? attempts,
+    StripePaymentGateway? stripeGateway,
+  }) : _addresses = AddressService(client: orders.client),
+       _attempts = attempts ?? CheckoutAttemptStore(),
+       _stripeGateway = stripeGateway ?? const FlutterStripePaymentGateway() {
     AuthProvider.registerLogoutListener(_clearSession);
   }
 
@@ -48,11 +60,42 @@ class CheckoutProvider extends ChangeNotifier {
   void _clearSession() {
     _authEpoch = null;
     _userId = null;
+    cardGatewayChecked = false;
+    cardGatewayConfigured = false;
+    enableCardPayment = true;
+    enableCodPayment = true;
+    stripePublishableKey = null;
     addresses = [];
     selectedAddress = null;
     pending = null;
     error = 'Please sign in to place an order.';
     _notify();
+  }
+
+  Future<void> refreshPaymentsConfig() => _refreshPaymentsConfig();
+
+  Future<void> _refreshPaymentsConfig() async {
+    try {
+      final cfg = await orders.client.get<Map<String, dynamic>>(
+        ApiEndpoints.paymentsConfig,
+        parser: (data) =>
+            data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{},
+      );
+      _checkSession();
+      enableCardPayment = cfg.data?['enable_card_payment'] != false;
+      enableCodPayment = cfg.data?['enable_cod_payment'] != false;
+      cardGatewayConfigured =
+          enableCardPayment && cfg.data?['card_gateway_configured'] == true;
+      stripePublishableKey = cfg.data?['stripe_publishable_key']?.toString();
+      cardGatewayChecked = true;
+    } catch (e) {
+      if (e is ApiException && e.message.startsWith('Your session changed')) {
+        rethrow;
+      }
+      cardGatewayConfigured = false;
+      stripePublishableKey = null;
+      cardGatewayChecked = true;
+    }
   }
 
   Future<void> load() async {
@@ -131,10 +174,31 @@ class CheckoutProvider extends ChangeNotifier {
         if (items.isEmpty) {
           throw const ApiException('Cannot place order with an empty cart');
         }
-        if (!paymentMethod.toLowerCase().contains('cash')) {
+        final normalizedMethod = paymentMethod.trim().toLowerCase();
+        final isCod = normalizedMethod.contains('cash') || normalizedMethod == 'cod';
+        final isCard = normalizedMethod.contains('card');
+        if (!isCod && !isCard) {
           throw const ApiException(
-            'Online payments are not available. Please select Cash on Delivery.',
+            'Unsupported payment method. Only Credit / Debit Card and Cash on Delivery are supported.',
           );
+        }
+        if (isCod && cardGatewayChecked && !enableCodPayment) {
+          throw const ApiException(
+            'Cash on Delivery is currently disabled in store settings.',
+          );
+        }
+        if (isCard) {
+          await _refreshPaymentsConfig();
+          if (!enableCardPayment) {
+            throw const ApiException(
+              'Credit / Debit Card payments are currently disabled in store settings.',
+            );
+          }
+          if (!cardGatewayConfigured) {
+            throw const ApiException(
+              'Online card payments are not available right now. Please select Cash on Delivery.',
+            );
+          }
         }
         final attempt = await _attempts.prepare(_userId!, {
           'shipping_address_id': address.id,
@@ -166,6 +230,70 @@ class CheckoutProvider extends ChangeNotifier {
       if (order.userId != _userId) {
         throw const ApiException('Could not verify order ownership.');
       }
+
+      final effectiveMethod =
+          (request['payment_method']?.toString() ?? order.paymentMethod)
+              .trim()
+              .toLowerCase();
+      final requiresCardSettlement =
+          effectiveMethod.contains('card') && !order.isPaid;
+
+      if (requiresCardSettlement) {
+        await _refreshPaymentsConfig();
+        if (!cardGatewayConfigured) {
+          throw const ApiException(
+            'Online card payments are not available right now. Please select Cash on Delivery.',
+          );
+        }
+
+        final intentRes = await orders.client.post<CardPaymentIntentSession>(
+          ApiEndpoints.paymentCardIntent,
+          body: {'order_id': order.id},
+          parser: (data) => CardPaymentIntentSession.fromJson(
+            data is Map ? Map<String, dynamic>.from(data) : <String, dynamic>{},
+          ),
+        );
+        _checkSession();
+
+        final intent = intentRes.data;
+        final publishableKey =
+            (intent != null && intent.publishableKey.isNotEmpty)
+            ? intent.publishableKey
+            : (stripePublishableKey ?? '');
+        if (intent == null ||
+            intent.paymentIntentId.isEmpty ||
+            intent.clientSecret.isEmpty ||
+            publishableKey.isEmpty) {
+          throw const ApiException(
+            'Unable to initialize Stripe card payment session for this order.',
+          );
+        }
+
+        try {
+          await _stripeGateway.presentCardPaymentSheet(
+            publishableKey: publishableKey,
+            clientSecret: intent.clientSecret,
+          );
+        } on StripePaymentSheetException catch (e) {
+          throw ApiException(e.message);
+        }
+        _checkSession();
+
+        await orders.client.post<Map<String, dynamic>>(
+          ApiEndpoints.paymentCardConfirm,
+          body: {
+            'order_id': order.id,
+            'payment_intent_id': intent.paymentIntentId,
+          },
+          parser: (data) => data is Map
+              ? Map<String, dynamic>.from(data)
+              : <String, dynamic>{},
+        );
+        _checkSession();
+
+        return order.copyWith(paymentStatus: 'paid');
+      }
+
       return order;
     } on ApiException catch (e) {
       // These responses definitively reject the request. Timeouts, 5xx and

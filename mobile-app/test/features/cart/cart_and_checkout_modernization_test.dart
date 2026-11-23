@@ -210,11 +210,11 @@ void main() {
       expect(find.text('Standard Delivery'), findsOneWidget);
       expect(find.text('Express Fast Delivery'), findsOneWidget);
 
-      // 4. Payment Method
+      // 4. Payment Method (strictly Cash on Delivery + Credit / Debit Card)
       expect(find.text('Payment Method'), findsOneWidget);
-      expect(find.text('ABA / KHQR Pay'), findsOneWidget);
-      expect(find.text('Credit / Debit Card'), findsOneWidget);
+      expect(find.text('ABA / KHQR Pay'), findsNothing);
       expect(find.text('Cash on Delivery (COD)'), findsOneWidget);
+      expect(find.text('Credit / Debit Card'), findsOneWidget);
 
       // 5. Price Breakdown
       expect(find.text('Price Breakdown'), findsOneWidget);

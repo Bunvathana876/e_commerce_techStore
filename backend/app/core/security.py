@@ -1,3 +1,4 @@
+import base64
 from datetime import datetime, timedelta, timezone
 import hashlib
 import math
@@ -10,20 +11,31 @@ import jwt
 
 from app.core.config import settings
 
+SHA256_BCRYPT_PREFIX = "sha256$"
+
 
 def hash_password(password: str) -> str:
-    """Hash a plaintext password using bcrypt."""
+    """Hash a plaintext password using bcrypt, pre-hashing secrets over 72 UTF-8 bytes."""
     salt = bcrypt.gensalt()
-    return bcrypt.hashpw(password.encode("utf-8"), salt).decode("utf-8")
+    raw = password.encode("utf-8")
+    if len(raw) <= 72:
+        return bcrypt.hashpw(raw, salt).decode("utf-8")
+    # Pre-hash long passphrases so bcrypt's 72-byte limit never raises or truncates entropy.
+    digest = base64.b64encode(hashlib.sha256(raw).digest())
+    return f"{SHA256_BCRYPT_PREFIX}{bcrypt.hashpw(digest, salt).decode('utf-8')}"
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a plaintext password against a stored bcrypt hash."""
+    """Verify a plaintext password against a stored bcrypt (or SHA-256 pre-hashed) digest."""
     try:
-        return bcrypt.checkpw(
-            plain_password.encode("utf-8"),
-            hashed_password.encode("utf-8"),
-        )
+        raw = plain_password.encode("utf-8")
+        if hashed_password.startswith(SHA256_BCRYPT_PREFIX):
+            digest = base64.b64encode(hashlib.sha256(raw).digest())
+            stored_hash = hashed_password[len(SHA256_BCRYPT_PREFIX):].encode("utf-8")
+            return bcrypt.checkpw(digest, stored_hash)
+        if len(raw) > 72:
+            return False
+        return bcrypt.checkpw(raw, hashed_password.encode("utf-8"))
     except Exception:
         return False
 

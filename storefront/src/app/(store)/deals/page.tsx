@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import PageHeader from "@/components/store/PageHeader";
 import {
@@ -34,6 +34,7 @@ export default function DealsPage() {
   const [productsError, setProductsError] = useState<string | null>(null);
   const [couponsError, setCouponsError] = useState<string | null>(null);
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const retryRef = useRef<((param?: unknown) => void) | null>(null);
 
   const loadDealsData = useCallback((param?: unknown) => {
     const isRetry =
@@ -53,7 +54,7 @@ export default function DealsPage() {
 
       if (prodFailed && !isRetry && typeof window !== "undefined") {
         setTimeout(() => {
-          loadDealsData({ isRetry: true });
+          retryRef.current?.({ isRetry: true });
         }, 2500);
         return;
       }
@@ -80,6 +81,10 @@ export default function DealsPage() {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    retryRef.current = loadDealsData;
+  }, [loadDealsData]);
 
   useEffect(() => {
     loadDealsData();

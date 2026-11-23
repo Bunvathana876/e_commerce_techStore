@@ -54,12 +54,10 @@ export default function SettingsPage() {
     estimatedDays: "3-5",
   });
 
-  // Payment methods
+  // Payment methods (restricted to Credit / Debit Card & Cash on Delivery)
   const [payments, setPayments] = useState([
-    { id: "1", name: "ABA Bank", enabled: true },
-    { id: "2", name: "Wing Money", enabled: true },
-    { id: "3", name: "Cash on Delivery", enabled: true },
-    { id: "4", name: "Credit Card", enabled: false },
+    { id: "1", name: "Credit / Debit Card", enabled: true },
+    { id: "2", name: "Cash on Delivery", enabled: true },
   ]);
 
   // Notifications

@@ -36,5 +36,19 @@ MockClient checkoutClient(
       200,
     );
   }
+  if (request.method == 'GET' && request.url.path.endsWith('/payments/config')) {
+    return http.Response(
+      jsonEncode({
+        'success': true,
+        'data': {
+          'supported_methods': ['Credit / Debit Card', 'Cash on Delivery'],
+          'card_gateway_configured': false,
+          'card_provider': 'stripe',
+          'currency': 'USD',
+        },
+      }),
+      200,
+    );
+  }
   return handler(request);
 });

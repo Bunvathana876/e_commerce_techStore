@@ -1,261 +1,277 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useState, useEffect, useCallback } from "react";
 import {
-  Plus,
-  Search,
-  Eye,
-  Truck,
-  Mail,
-  Phone,
-  Package,
-  Trash2,
-  Loader2,
   AlertCircle,
-  CheckCircle2,
+  Building2,
+  ClipboardList,
+  Edit3,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
 } from "lucide-react";
-import { sellersApi, ApiSeller } from "@/lib/api";
+import { suppliersApi, type ApiSupplier } from "@/lib/api";
 
-const statusFilters = ["All", "Active", "Inactive"];
+const STATUS_STYLE: Record<string, string> = {
+  Active: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  Inactive: "bg-slate-100 text-slate-600 border-slate-200",
+};
 
 export default function SuppliersPage() {
-  const [suppliers, setSuppliers] = useState<ApiSeller[]>([]);
+  const [suppliers, setSuppliers] = useState<ApiSupplier[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [notification, setNotification] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
 
-  const fetchSuppliers = useCallback(async () => {
+  const loadSuppliers = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await sellersApi.list();
-      if (res.success && res.data) {
-        setSuppliers(res.data);
-      }
-    } catch (err: any) {
-      setNotification({
-        type: "error",
-        text: err.message || "Failed to load suppliers from database.",
+      const res = await suppliersApi.getAll({
+        status: statusFilter || undefined,
+        search: search.trim() || undefined,
       });
+      setSuppliers(res.data || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load suppliers.");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [search, statusFilter]);
 
   useEffect(() => {
-    fetchSuppliers();
-  }, [fetchSuppliers]);
+    void loadSuppliers();
+  }, [loadSuppliers]);
 
-  const handleDelete = async (id: number) => {
-    if (!confirm(`Are you sure you want to remove supplier #${id}?`)) return;
-    setDeletingId(id);
+  const handleDelete = async (supplier: ApiSupplier) => {
+    if (!window.confirm(`Delete supplier ${supplier.name} (${supplier.code})?`)) {
+      return;
+    }
+    setDeletingId(supplier.id);
+    setError(null);
+    setFeedback(null);
     try {
-      const res = await sellersApi.delete(id);
-      if (res.success) {
-        setSuppliers((prev) => prev.filter((s) => s.id !== id));
-        setNotification({
-          type: "success",
-          text: `Supplier #${id} removed successfully from PostgreSQL database.`,
-        });
-      }
-    } catch (err: any) {
-      setNotification({
-        type: "error",
-        text: err.message || "Failed to remove supplier.",
-      });
+      await suppliersApi.delete(supplier.id);
+      setFeedback(`Deleted supplier ${supplier.name}.`);
+      await loadSuppliers();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Cannot delete supplier while purchase orders remain attached."
+      );
     } finally {
       setDeletingId(null);
     }
   };
 
-  const filtered = suppliers.filter((s) => {
-    const matchSearch =
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      (s.owner_name && s.owner_name.toLowerCase().includes(search.toLowerCase())) ||
-      (s.email && s.email.toLowerCase().includes(search.toLowerCase()));
-    const matchStatus =
-      statusFilter === "All" ||
-      s.status.toLowerCase() === statusFilter.toLowerCase();
-    return matchSearch && matchStatus;
-  });
+  const activeCount = suppliers.filter((s) => s.status === "Active").length;
+  const openPoCount = suppliers.reduce(
+    (sum, s) => sum + Number(s.open_purchase_orders_count || 0),
+    0
+  );
+  const totalProcured = suppliers.reduce(
+    (sum, s) => sum + Number(s.total_procured_amount || 0),
+    0
+  );
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Suppliers & Vendors</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Manage your merchant supply network stored in PostgreSQL
+          <h1 className="text-2xl font-bold text-slate-900">Suppliers & Procurement</h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Dedicated supplier directory linked directly to inventory Purchase Orders
           </p>
         </div>
-        <Link
-          href="/admin/suppliers/create"
-          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#7699F0] text-white text-sm font-semibold rounded-xl hover:bg-blue-600 transition-all shadow-sm hover:shadow-md"
-        >
-          <Plus size={18} />
-          Add Supplier
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => void loadSuppliers()}
+            className="inline-flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+          >
+            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+            Refresh
+          </button>
+          <Link
+            href="/admin/suppliers/create"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition"
+          >
+            <Plus size={16} />
+            Add Supplier
+          </Link>
+        </div>
       </div>
 
-      {/* Notification */}
-      {notification && (
-        <div
-          className={`flex items-center gap-2 p-4 rounded-xl text-sm border ${
-            notification.type === "success"
-              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-              : "bg-red-50 border-red-200 text-red-800"
-          }`}
+      {/* KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white rounded-2xl border border-slate-200 p-5">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+            <span>Total Suppliers</span>
+            <Building2 size={16} className="text-blue-600" />
+          </div>
+          <p className="text-2xl font-bold text-slate-900 mt-2">{suppliers.length}</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-200 p-5">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+            <span>Active Vendors</span>
+            <Building2 size={16} className="text-emerald-600" />
+          </div>
+          <p className="text-2xl font-bold text-slate-900 mt-2">{activeCount}</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-200 p-5">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+            <span>Open Purchase Orders</span>
+            <ClipboardList size={16} className="text-amber-600" />
+          </div>
+          <p className="text-2xl font-bold text-slate-900 mt-2">{openPoCount}</p>
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-200 p-5">
+          <div className="flex items-center justify-between text-xs font-medium text-slate-500">
+            <span>Total Procured Spend</span>
+            <ClipboardList size={16} className="text-slate-600" />
+          </div>
+          <p className="text-2xl font-bold text-slate-900 mt-2">
+            ${totalProcured.toFixed(2)}
+          </p>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <Search size={16} className="absolute left-3.5 top-3 text-slate-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by supplier code, name, contact person, or email..."
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:bg-white"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700"
         >
-          {notification.type === "success" ? (
-            <CheckCircle2 size={18} className="text-emerald-600 flex-shrink-0" />
-          ) : (
-            <AlertCircle size={18} className="text-red-600 flex-shrink-0" />
-          )}
-          <span>{notification.text}</span>
+          <option value="">All Statuses</option>
+          <option value="Active">Active</option>
+          <option value="Inactive">Inactive</option>
+        </select>
+      </div>
+
+      {feedback && (
+        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
+          {feedback}
         </div>
       )}
 
-      {/* Search + Filters */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-4">
-        <div className="relative">
-          <Search
-            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
-            size={18}
-          />
-          <input
-            type="text"
-            placeholder="Search by company name, contact person or email..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-sm bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#7699F0] transition"
-          />
+      {error && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <AlertCircle size={16} />
+            {error}
+          </span>
+          <button
+            type="button"
+            onClick={() => void loadSuppliers()}
+            className="text-xs font-semibold underline cursor-pointer"
+          >
+            Retry
+          </button>
         </div>
+      )}
 
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-gray-100">
-          <span className="text-xs font-medium text-gray-500 mr-2">Status:</span>
-          {statusFilters.map((s) => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition ${
-                statusFilter === s
-                  ? "bg-[#7699F0] text-white shadow-sm"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Table */}
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
         {loading ? (
-          <div className="py-20 flex flex-col items-center justify-center text-[#7699F0]">
-            <Loader2 size={32} className="animate-spin mb-2" />
-            <p className="text-sm font-medium text-gray-500">
-              Loading suppliers from PostgreSQL...
-            </p>
+          <div className="p-8 text-center text-sm text-slate-500">
+            Loading suppliers...
           </div>
-        ) : filtered.length === 0 ? (
-          <div className="py-16 text-center text-gray-400">
-            <Truck size={36} className="mx-auto mb-2 opacity-50" />
-            <p className="text-sm font-medium">No suppliers found</p>
+        ) : suppliers.length === 0 ? (
+          <div className="p-10 text-center space-y-3">
+            <p className="text-sm text-slate-500">
+              No dedicated suppliers registered yet.
+            </p>
+            <Link
+              href="/admin/suppliers/create"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-semibold"
+            >
+              <Plus size={14} />
+              Create First Supplier
+            </Link>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-gray-50 text-gray-500 text-xs font-semibold uppercase border-b border-gray-100">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-slate-50 border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase">
                 <tr>
-                  <th className="px-6 py-4">Company Name</th>
-                  <th className="px-6 py-4">Contact Person</th>
-                  <th className="px-6 py-4">Products</th>
-                  <th className="px-6 py-4">Address / Location</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
+                  <th className="px-5 py-3.5">Supplier</th>
+                  <th className="px-5 py-3.5">Contact</th>
+                  <th className="px-5 py-3.5">Terms & Lead Time</th>
+                  <th className="px-5 py-3.5 text-center">POs (Open)</th>
+                  <th className="px-5 py-3.5 text-right">Procured Spend</th>
+                  <th className="px-5 py-3.5">Status</th>
+                  <th className="px-5 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filtered.map((s) => (
-                  <tr key={s.id} className="hover:bg-gray-50 transition">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#7699F0] flex items-center justify-center font-bold text-sm">
-                          {s.name.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p className="font-semibold text-gray-900">{s.name}</p>
-                          <p className="text-xs text-gray-400">ID: #{s.id}</p>
-                        </div>
+              <tbody className="divide-y divide-slate-100">
+                {suppliers.map((s) => (
+                  <tr key={s.id} className="hover:bg-slate-50/70 transition">
+                    <td className="px-5 py-3.5">
+                      <div className="font-semibold text-slate-900">{s.name}</div>
+                      <div className="text-xs font-mono text-slate-500">{s.code}</div>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="font-medium text-slate-800">{s.contact_name}</div>
+                      <div className="text-xs text-slate-500">{s.email}</div>
+                      {s.phone && (
+                        <div className="text-xs text-slate-400">{s.phone}</div>
+                      )}
+                    </td>
+                    <td className="px-5 py-3.5 text-slate-700">
+                      <div className="font-medium">{s.payment_terms}</div>
+                      <div className="text-xs text-slate-500">
+                        Lead time: {s.lead_time_days} day{s.lead_time_days === 1 ? "" : "s"}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <p className="font-medium text-gray-900">{s.owner_name}</p>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <Mail size={12} className="text-gray-400" />
-                          {s.email}
-                        </span>
-                        {s.phone && (
-                          <span className="flex items-center gap-1">
-                            <Phone size={12} className="text-gray-400" />
-                            {s.phone}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-[#7699F0]">
-                        <Package size={13} />
-                        {s.products_count} items
+                    <td className="px-5 py-3.5 text-center text-slate-800 font-medium">
+                      {s.purchase_orders_count}{" "}
+                      <span className="text-xs text-amber-700">
+                        ({s.open_purchase_orders_count} open)
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-gray-600 text-xs">
-                      {s.address || "N/A"}
+                    <td className="px-5 py-3.5 text-right font-semibold text-slate-900">
+                      ${Number(s.total_procured_amount || 0).toFixed(2)}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-5 py-3.5">
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-                          s.status.toLowerCase() === "active"
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-gray-100 text-gray-600"
+                        className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${
+                          STATUS_STYLE[s.status] || "bg-slate-100 text-slate-700 border-slate-200"
                         }`}
                       >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            s.status.toLowerCase() === "active"
-                              ? "bg-emerald-500"
-                              : "bg-gray-400"
-                          }`}
-                        />
                         {s.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
+                    <td className="px-5 py-3.5 text-right">
+                      <div className="inline-flex items-center gap-2">
                         <Link
                           href={`/admin/suppliers/${s.id}`}
-                          className="p-1.5 text-gray-400 hover:text-[#7699F0] hover:bg-blue-50 rounded-lg transition"
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium"
                         >
-                          <Eye size={16} />
+                          <Edit3 size={13} />
+                          Manage
                         </Link>
                         <button
-                          onClick={() => handleDelete(s.id)}
+                          type="button"
                           disabled={deletingId === s.id}
-                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                          onClick={() => void handleDelete(s)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-medium disabled:opacity-50 cursor-pointer"
                         >
-                          {deletingId === s.id ? (
-                            <Loader2 size={16} className="animate-spin" />
-                          ) : (
-                            <Trash2 size={16} />
-                          )}
+                          <Trash2 size={13} />
                         </button>
                       </div>
                     </td>

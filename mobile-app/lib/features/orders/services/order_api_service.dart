@@ -2,6 +2,7 @@ import '../../../core/constants/api_endpoints.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_exceptions.dart';
 import '../models/order_model.dart';
+import '../models/order_tracking_model.dart';
 
 /// REST API service for Orders, connecting to FastAPI backend
 class OrderApiService {
@@ -89,6 +90,33 @@ class OrderApiService {
     }
 
     return created;
+  }
+
+  /// Fetch real shipment tracking & timeline events for an order
+  Future<OrderTrackingData> getOrderTracking(int orderId) async {
+    final response = await _client.get<OrderTrackingData>(
+      ApiEndpoints.orderTracking(orderId),
+      parser: (data) {
+        if (data is Map) {
+          final map = Map<String, dynamic>.from(data);
+          final inner = map['data'] is Map
+              ? Map<String, dynamic>.from(map['data'] as Map)
+              : map;
+          return OrderTrackingData.fromJson(inner);
+        }
+        throw const ApiException('Invalid tracking response received.');
+      },
+    );
+    final tracking = response.data;
+    if (!response.success || tracking == null) {
+      throw ApiException(
+        response.message.isNotEmpty
+            ? response.message
+            : 'Unable to load shipment tracking.',
+        statusCode: response.statusCode,
+      );
+    }
+    return tracking;
   }
 
   /// Parses order list from backend enveloped or raw list format

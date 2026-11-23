@@ -300,7 +300,14 @@ function AuthFormInner({ mode }: AuthFormProps) {
                   >
                     Password *
                   </label>
-                  {!isLogin && (
+                  {isLogin ? (
+                    <Link
+                      href="/forgot-password"
+                      className="text-xs font-semibold text-brand hover:underline"
+                    >
+                      Forgot password?
+                    </Link>
+                  ) : (
                     <span className="text-[11px] font-semibold text-slate-400">
                       Min 6 characters
                     </span>

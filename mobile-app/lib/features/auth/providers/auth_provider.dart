@@ -15,6 +15,8 @@ class AuthProvider extends ChangeNotifier {
 
   // Coordinated logout listeners across providers
   static final List<FutureOr<void> Function()> _logoutListeners = [];
+  // Coordinated login listeners across providers (e.g. remote cart restore)
+  static final List<FutureOr<void> Function()> _loginListeners = [];
 
   static void registerLogoutListener(FutureOr<void> Function() listener) {
     if (!_logoutListeners.contains(listener)) {
@@ -28,6 +30,31 @@ class AuthProvider extends ChangeNotifier {
 
   static void clearLogoutListeners() {
     _logoutListeners.clear();
+  }
+
+  static void registerLoginListener(FutureOr<void> Function() listener) {
+    if (!_loginListeners.contains(listener)) {
+      _loginListeners.add(listener);
+    }
+  }
+
+  static void unregisterLoginListener(FutureOr<void> Function() listener) {
+    _loginListeners.remove(listener);
+  }
+
+  static void clearLoginListeners() {
+    _loginListeners.clear();
+  }
+
+  Future<void> _notifyLoginListeners() async {
+    final listeners = List<FutureOr<void> Function()>.from(_loginListeners);
+    for (final listener in listeners) {
+      try {
+        await listener();
+      } catch (e) {
+        debugPrint('Login listener failed: $e');
+      }
+    }
   }
 
   AuthProvider({AuthService? authService, SharedPreferences? initialPrefs})
@@ -173,6 +200,7 @@ class AuthProvider extends ChangeNotifier {
 
       _isLoading = false;
       notifyListeners();
+      unawaited(_notifyLoginListeners());
       return true;
     } catch (e) {
       _isLoading = false;
@@ -220,6 +248,7 @@ class AuthProvider extends ChangeNotifier {
 
       _isLoading = false;
       notifyListeners();
+      unawaited(_notifyLoginListeners());
       return true;
     } catch (e) {
       _isLoading = false;
@@ -248,6 +277,7 @@ class AuthProvider extends ChangeNotifier {
     }
 
     notifyListeners();
+    unawaited(_notifyLoginListeners());
   }
 
   // Log out and clear stored session
@@ -279,5 +309,62 @@ class AuthProvider extends ChangeNotifier {
       _isLoggingOut = false;
     }
     await remoteLogout;
+  }
+
+  // Request a single-use password reset email via backend SMTP / SendGrid
+  Future<Map<String, dynamic>?> requestPasswordReset(String email) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      final result = await _authService.requestPasswordReset(email);
+      _isLoading = false;
+      notifyListeners();
+      return result;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e
+          .toString()
+          .replaceFirst('Exception: ', '')
+          .replaceFirst('ApiException: ', '');
+      notifyListeners();
+      return null;
+    }
+  }
+
+  // Validate a reset token before submitting password update
+  Future<bool> validateResetToken(String token) async {
+    try {
+      return await _authService.validateResetToken(token);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  // Confirm password reset using issued token and new password
+  Future<bool> confirmPasswordReset({
+    required String token,
+    required String newPassword,
+  }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      await _authService.confirmPasswordReset(
+        token: token,
+        newPassword: newPassword,
+      );
+      _isLoading = false;
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e
+          .toString()
+          .replaceFirst('Exception: ', '')
+          .replaceFirst('ApiException: ', '');
+      notifyListeners();
+      return false;
+    }
   }
 }

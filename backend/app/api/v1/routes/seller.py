@@ -5,6 +5,7 @@ from app.core.dependencies import require_roles
 from app.db.database import get_db
 from app.models.user import User
 from app.schemas.seller import SellerProfileUpdate, SellerResponse
+from app.services.order_service import OrderService
 from app.services.product_service import ProductService
 from app.services.seller_service import SellerService
 
@@ -77,5 +78,54 @@ def list_my_products(
     return {
         "success": True,
         "message": "Seller products retrieved successfully.",
+        "data": result.model_dump(),
+    }
+
+
+@router.get("/dashboard", status_code=status.HTTP_200_OK)
+def get_my_seller_dashboard(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("seller", "admin")),
+):
+    seller = SellerService.get_seller_by_user_id(db, current_user.id)
+    if not seller:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Seller store profile not found.",
+        )
+    dashboard = OrderService.get_seller_dashboard(db, seller=seller)
+    return {
+        "success": True,
+        "message": "Seller dashboard retrieved successfully.",
+        "data": dashboard.model_dump(),
+    }
+
+
+@router.get("/orders", status_code=status.HTTP_200_OK)
+def list_my_seller_orders(
+    status_filter: str | None = Query(None, alias="status", description="Filter by order status"),
+    search: str | None = Query(None, description="Search by order ID, buyer, product, or address"),
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(20, ge=1, le=100, description="Page size"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_roles("seller", "admin")),
+):
+    seller = SellerService.get_seller_by_user_id(db, current_user.id)
+    if not seller:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Seller store profile not found.",
+        )
+    result = OrderService.get_seller_orders(
+        db,
+        seller=seller,
+        status_filter=status_filter,
+        search=search,
+        page=page,
+        limit=limit,
+    )
+    return {
+        "success": True,
+        "message": "Seller orders retrieved successfully.",
         "data": result.model_dump(),
     }

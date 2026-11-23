@@ -17,6 +17,7 @@ from app.db.database import Base
 
 if TYPE_CHECKING:
     from app.models.product import Product
+    from app.models.shipment import OrderShipment
     from app.models.user import User
 
 
@@ -105,6 +106,12 @@ class Order(Base):
 
     items: Mapped[list["OrderItem"]] = relationship(
         back_populates="order",
+        cascade="all, delete-orphan",
+    )
+
+    shipment: Mapped["OrderShipment | None"] = relationship(
+        back_populates="order",
+        uselist=False,
         cascade="all, delete-orphan",
     )
 

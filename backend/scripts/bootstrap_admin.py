@@ -25,8 +25,8 @@ import httpx
 API = os.getenv("API_URL", "https://e-commerce-techstore-bhu7.onrender.com/api")
 APPROVAL = "AUTHORIZE FIRST ADMIN"
 EXPECTED_COLUMNS = {
-    "id", "name", "email", "password_hash", "phone", "avatar", "role",
-    "is_active", "created_at", "updated_at",
+    "id", "name", "email", "password_hash", "legacy_tokens_revoked_at",
+    "phone", "avatar", "role", "is_active", "created_at", "updated_at",
 }
 
 

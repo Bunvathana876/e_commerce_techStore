@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import PageHeader from "@/components/store/PageHeader";
 import {
@@ -68,6 +68,7 @@ function ShopCatalogContent() {
   const [sortBy, setSortBy] = useState(initialSort);
   const [viewMode, setViewMode] = useState<"grid" | "list">(initialViewMode);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const retryRef = useRef<((param?: unknown) => void) | null>(null);
 
   // Load Catalog Data
   const loadCatalogData = useCallback((param?: unknown) => {
@@ -88,7 +89,7 @@ function ShopCatalogContent() {
 
       if (prodFailed && !isRetry && typeof window !== "undefined") {
         setTimeout(() => {
-          loadCatalogData({ isRetry: true });
+          retryRef.current?.({ isRetry: true });
         }, 2500);
         return;
       }
@@ -110,6 +111,10 @@ function ShopCatalogContent() {
       setIsLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    retryRef.current = loadCatalogData;
+  }, [loadCatalogData]);
 
   useEffect(() => {
     loadCatalogData();

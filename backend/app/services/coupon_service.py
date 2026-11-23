@@ -1,10 +1,10 @@
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from fastapi import HTTPException, status
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
-from app.models.coupon import Coupon
+from app.models.coupon import Coupon, CouponRedemption
 from app.models.order import Order
 from app.schemas.coupon import (
     CouponCreateRequest,
@@ -136,6 +136,31 @@ class CouponService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"Promo code '{clean_code}' usage limit has been reached.",
             )
+
+        if coupon.per_user_limit is not None and user_id is not None:
+            recorded_redemptions = db.scalar(
+                select(func.count(CouponRedemption.id)).where(
+                    CouponRedemption.coupon_id == coupon.id,
+                    CouponRedemption.user_id == user_id,
+                )
+            ) or 0
+            legacy_orders_without_row = db.scalar(
+                select(func.count(Order.id)).where(
+                    Order.user_id == user_id,
+                    Order.coupon_code == clean_code,
+                    Order.status != "cancelled",
+                    ~Order.id.in_(
+                        select(CouponRedemption.order_id).where(
+                            CouponRedemption.coupon_id == coupon.id
+                        )
+                    ),
+                )
+            ) or 0
+            if (recorded_redemptions + legacy_orders_without_row) >= coupon.per_user_limit:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"You have already reached the usage limit for promo code '{clean_code}'.",
+                )
 
         # Validate discount configuration
         if coupon.discount_value <= ZERO:
@@ -274,11 +299,48 @@ class CouponService:
         return validation_res
 
     @staticmethod
-    def restore_coupon_usage(db: Session, code: str) -> None:
-        """Restores one usage count when an eligible order is cancelled."""
+    def record_redemption(
+        db: Session,
+        *,
+        code: str,
+        user_id: int,
+        order_id: int,
+    ) -> None:
+        """Records an auditable per-order coupon redemption in the active checkout transaction."""
         clean_code = (code or "").strip().upper()
         if not clean_code:
             return
+        coupon = db.scalar(select(Coupon).where(Coupon.code == clean_code))
+        if not coupon:
+            return
+        exists = db.scalar(
+            select(CouponRedemption.id).where(CouponRedemption.order_id == order_id)
+        )
+        if exists is None:
+            db.add(
+                CouponRedemption(
+                    coupon_id=coupon.id,
+                    user_id=user_id,
+                    order_id=order_id,
+                )
+            )
+            db.flush()
+
+    @staticmethod
+    def restore_coupon_usage(
+        db: Session,
+        code: str,
+        *,
+        order_id: int | None = None,
+    ) -> None:
+        """Restores one usage count (and clears order redemption) when an eligible order is cancelled."""
+        clean_code = (code or "").strip().upper()
+        if not clean_code:
+            return
+        if order_id is not None:
+            db.execute(
+                delete(CouponRedemption).where(CouponRedemption.order_id == order_id)
+            )
         db.execute(
             update(Coupon)
             .where(
@@ -327,6 +389,7 @@ class CouponService:
             is_active=request.is_active,
             expires_at=_normalize_to_utc(request.expires_at),
             usage_limit=request.usage_limit,
+            per_user_limit=request.per_user_limit,
             used_count=0,
         )
         db.add(coupon)
@@ -366,6 +429,8 @@ class CouponService:
             coupon.expires_at = _normalize_to_utc(request.expires_at)
         if request.usage_limit is not None:
             coupon.usage_limit = request.usage_limit
+        if "per_user_limit" in request.model_fields_set:
+            coupon.per_user_limit = request.per_user_limit
 
         db.commit()
         db.refresh(coupon)

@@ -50,20 +50,20 @@ def test_1_authorized_cash_cod_and_unverified_non_cash_pos_transactions(
     assert receipt["payment_status"] == "paid"
     assert receipt["customer_name"] == "Fixture 2"
 
-    # Unverified QR Pay & Cash on Delivery must NOT be marked paid
-    qr_res = client.post(
+    # Unverified Credit / Debit Card & Cash on Delivery must NOT be marked paid
+    card_res = client.post(
         f"{prefix}/pos/checkout",
         json={
             "items": [{"product_id": 1, "quantity": 1}],
-            "payment_method": "QR Pay",
+            "payment_method": "Credit / Debit Card",
             "amount_paid": "20.00",
         },
         headers=admin_headers,
     )
-    assert qr_res.status_code == 201
-    assert qr_res.json()["data"]["payment_status"] == "pending"
-    assert Decimal(str(qr_res.json()["data"]["amount_paid"])) == Decimal("0.00")
-    assert Decimal(str(qr_res.json()["data"]["change_due"])) == Decimal("0.00")
+    assert card_res.status_code == 201
+    assert card_res.json()["data"]["payment_status"] == "pending"
+    assert Decimal(str(card_res.json()["data"]["amount_paid"])) == Decimal("0.00")
+    assert Decimal(str(card_res.json()["data"]["change_due"])) == Decimal("0.00")
 
     cod_res = client.post(
         f"{prefix}/pos/checkout",
@@ -166,7 +166,7 @@ def test_3_incorrect_cash_and_non_cash_tender_rejected(
     )
     assert neg_tender.status_code == 422
 
-    # COD with upfront cash or QR Pay with mismatched partial tender rejected
+    # COD with upfront cash, unverified card mismatch, or deprecated QR Pay/KHQR rejected
     cod_with_cash = client.post(
         f"{prefix}/pos/checkout",
         json={
@@ -178,16 +178,28 @@ def test_3_incorrect_cash_and_non_cash_tender_rejected(
     )
     assert cod_with_cash.status_code == 400
 
-    qr_mismatch = client.post(
+    card_mismatch = client.post(
         f"{prefix}/pos/checkout",
         json={
             "items": [{"product_id": 1, "quantity": 1}],
-            "payment_method": "QR Pay",
+            "payment_method": "Credit / Debit Card",
             "amount_paid": "12.00",
         },
         headers=admin_headers,
     )
-    assert qr_mismatch.status_code == 400
+    assert card_mismatch.status_code == 400
+
+    for deprecated in ["QR Pay", "KHQR", "ABA / KHQR Pay", "Apple Pay"]:
+        dep_res = client.post(
+            f"{prefix}/pos/checkout",
+            json={
+                "items": [{"product_id": 1, "quantity": 1}],
+                "payment_method": deprecated,
+                "amount_paid": "20.00",
+            },
+            headers=admin_headers,
+        )
+        assert dep_res.status_code == 400
 
     with SessionLocal() as db:
         assert db.get(Product, 1).stock == 20

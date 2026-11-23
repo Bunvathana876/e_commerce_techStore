@@ -277,6 +277,35 @@ export const authApi = {
     if (response.success && epoch === getSessionEpoch()) logout("password_changed");
     return response;
   },
+
+  forgotPassword: async (data: {
+    email: string;
+    client?: "storefront" | "management" | "mobile";
+  }): Promise<ApiResponse<{ expires_in_minutes: number }>> => {
+    return request<ApiResponse<{ expires_in_minutes: number }>>("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ client: "storefront", ...data }),
+    });
+  },
+
+  validateResetToken: async (
+    token: string
+  ): Promise<ApiResponse<{ valid: boolean }>> => {
+    return request<ApiResponse<{ valid: boolean }>>("/auth/reset-password/validate", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    });
+  },
+
+  resetPassword: async (data: {
+    token: string;
+    new_password: string;
+  }): Promise<ApiResponse<null>> => {
+    return request<ApiResponse<null>>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
 };
 
 // ==========================================
@@ -404,6 +433,39 @@ export const categoriesApi = {
 // ==========================================
 // Orders & Vouchers APIs
 // ==========================================
+export interface ApiOrderShipment {
+  id: number;
+  order_id: number;
+  carrier: string;
+  tracking_number?: string | null;
+  tracking_url?: string | null;
+  status: string;
+  estimated_delivery_at?: string | null;
+  shipped_at?: string | null;
+  delivered_at?: string | null;
+  notes?: string | null;
+  updated_at?: string | null;
+}
+
+export interface ApiOrderTrackingEvent {
+  id?: number | null;
+  status: string;
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  occurred_at: string;
+}
+
+export interface ApiOrderTracking {
+  order_id: number;
+  order_status: string;
+  payment_status: string;
+  shipping_address: string;
+  has_shipment_record: boolean;
+  shipment?: ApiOrderShipment | null;
+  events: ApiOrderTrackingEvent[];
+}
+
 export const ordersApi = {
   create: async (
     data: {
@@ -442,6 +504,10 @@ export const ordersApi = {
     return request<ApiResponse<ApiOrder>>(`/orders/${id}`);
   },
 
+  getTracking: async (id: number): Promise<ApiResponse<ApiOrderTracking>> => {
+    return request<ApiResponse<ApiOrderTracking>>(`/orders/${id}/tracking`);
+  },
+
   updateStatus: async (
     id: number,
     data: { status?: string; payment_status?: string }
@@ -459,6 +525,72 @@ export const ordersApi = {
     const query = reason ? `?reason=${encodeURIComponent(reason)}` : "";
     return request<ApiResponse<ApiOrder | null>>(`/orders/${id}${query}`, {
       method: "DELETE",
+    });
+  },
+};
+
+export interface ApiPaymentConfig {
+  supported_methods: string[];
+  card_gateway_configured: boolean;
+  card_provider: string;
+  stripe_publishable_key?: string | null;
+  currency: string;
+  enable_card_payment?: boolean;
+  enable_cod_payment?: boolean;
+}
+
+export interface ApiPublicStoreSettings {
+  store_name: string;
+  store_email: string;
+  store_phone?: string | null;
+  store_logo_url?: string | null;
+  currency: string;
+  free_shipping_min: number | string;
+  standard_shipping_fee: number | string;
+  express_shipping_fee: number | string;
+  estimated_delivery_days: string;
+  enable_card_payment: boolean;
+  enable_cod_payment: boolean;
+}
+
+export const settingsApi = {
+  getPublic: async (): Promise<ApiResponse<ApiPublicStoreSettings>> => {
+    return request<ApiResponse<ApiPublicStoreSettings>>("/settings/public");
+  },
+};
+
+export interface ApiCardPaymentIntent {
+  payment_id: number;
+  transaction_ref: string;
+  order_id: number;
+  payment_intent_id: string;
+  client_secret: string;
+  amount: number | string;
+  currency: string;
+  publishable_key?: string | null;
+}
+
+export const paymentsApi = {
+  getConfig: async (): Promise<ApiResponse<ApiPaymentConfig>> => {
+    return request<ApiResponse<ApiPaymentConfig>>("/payments/config");
+  },
+
+  createCardIntent: async (
+    orderId: number
+  ): Promise<ApiResponse<ApiCardPaymentIntent>> => {
+    return request<ApiResponse<ApiCardPaymentIntent>>("/payments/card/intent", {
+      method: "POST",
+      body: JSON.stringify({ order_id: orderId }),
+    });
+  },
+
+  confirmCardPayment: async (data: {
+    order_id: number;
+    payment_intent_id: string;
+  }): Promise<ApiResponse<unknown>> => {
+    return request<ApiResponse<unknown>>("/payments/card/confirm", {
+      method: "POST",
+      body: JSON.stringify(data),
     });
   },
 };

@@ -53,7 +53,7 @@ export default function PaymentsPage() {
       id: `PAY-${order.id.toString().padStart(4, "0")}`,
       orderId: `ORD-${order.id}`,
       customer: order.user?.name || `Customer #${order.user_id}`,
-      method: order.payment_method || "ABA Bank",
+      method: order.payment_method || "Cash on Delivery",
       amount: amount,
       status: status,
       date: dateObj.toLocaleDateString(),

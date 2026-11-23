@@ -189,9 +189,9 @@ void main() {
       final cartProvider = CartProvider();
       cartProvider.addItem(sampleProduct, quantity: 1);
 
-      // Even if an untrusted payload omits or misreports paid for a demo method,
-      // unverified demo methods remain pending verification.
-      final khqrClient = ApiClient(
+      // Attempt online Credit / Debit Card checkout while Stripe card gateway is unconfigured:
+      // unconfigured card checkout must be blocked client-side before order creation.
+      final cardBlockedClient = ApiClient(
         client: checkoutClient((request) async {
           return http.Response(
             jsonEncode({
@@ -204,8 +204,8 @@ void main() {
                 'discount_amount': 0.0,
                 'shipping_fee': 0.0,
                 'total': 120.0,
-                'payment_method': 'ABA / KHQR Pay',
-                'payment_status': 'paid',
+                'payment_method': 'Credit / Debit Card',
+                'payment_status': 'pending',
                 'shipping_address': 'Phnom Penh',
                 'created_at': '2026-10-31T10:00:00Z',
                 'items': [],
@@ -225,7 +225,7 @@ void main() {
           child: MaterialApp(
             theme: AppTheme.lightTheme,
             home: CheckoutScreen(
-              orderApiService: OrderApiService(client: khqrClient),
+              orderApiService: OrderApiService(client: cardBlockedClient),
             ),
           ),
         ),
@@ -233,14 +233,14 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Select ABA / KHQR Pay (demo method) and submit
+      // Select Credit / Debit Card (index 1) and submit while gateway is unconfigured
       await tester.scrollUntilVisible(
-        find.byKey(const Key('payment_method_0')),
+        find.byKey(const Key('payment_method_1')),
         200,
         scrollable: find.byType(Scrollable).first,
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('payment_method_0')));
+      await tester.tap(find.byKey(const Key('payment_method_1')));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const Key('place_order_button')));
@@ -249,7 +249,7 @@ void main() {
       expect(orderProvider.orders, isEmpty);
       expect(find.byType(OrderSuccessScreen), findsNothing);
       expect(
-        find.textContaining('Online payments are not available'),
+        find.textContaining('Online card payments are not available right now'),
         findsOneWidget,
       );
       expect(cartProvider.isEmpty, isFalse);

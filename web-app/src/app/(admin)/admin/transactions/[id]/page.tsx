@@ -91,7 +91,7 @@ export default function TransactionDetailPage() {
       : "Pending";
 
   const amount = Number(order.total) || 0;
-  const paymentMethod = order.payment_method || "ABA Bank / KHQR";
+  const paymentMethod = order.payment_method || "Cash on Delivery";
   const dateObj = new Date(order.created_at);
   const formattedDate = !isNaN(dateObj.getTime())
     ? dateObj.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })

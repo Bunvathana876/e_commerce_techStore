@@ -10,6 +10,8 @@
     "test": "node --import ./src/lib/__tests__/ts-resolver.mjs --test 'src/lib/__tests__/*.test.ts' 'src/lib/__tests__/*.test.mjs'"
   },
   "dependencies": {
+    "@stripe/react-stripe-js": "^7.1.0",
+    "@stripe/stripe-js": "^10.3.0",
     "clsx": "^2.1.1",
     "lucide-react": "^1.43.0",
     "next": "16.4.5",
@@ -20,6 +22,10 @@
     "zustand": "^5.0.15"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.13",
+    "@babel/plugin-transform-react-jsx": "^7.29.7",
+    "@svgr/core": "8.1.0",
+    "@svgr/plugin-jsx": "8.1.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
@@ -28,11 +34,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.4.5",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "@svgr/core": "8.1.0",
-    "@svgr/plugin-jsx": "8.1.0",
-    "@babel/core": "^7.29.13",
-    "@babel/plugin-transform-react-jsx": "^7.29.7"
+    "typescript": "^5"
   },
   "overrides": {
     "@typescript-eslint/typescript-estree": {

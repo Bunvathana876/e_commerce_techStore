@@ -11,7 +11,6 @@ import {
   User,
   DollarSign,
   CreditCard,
-  QrCode,
   Printer,
   PauseCircle,
   RefreshCw,
@@ -144,7 +143,7 @@ export default function PosPage() {
 
   // State: Payment Modal
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"Cash" | "Credit Card" | "QR Pay">("Cash");
+  const [paymentMethod, setPaymentMethod] = useState<"Cash" | "Credit / Debit Card">("Cash");
   const [cashTendered, setCashTendered] = useState<string>("");
   const [processingPayment, setProcessingPayment] = useState(false);
 
@@ -1197,26 +1196,15 @@ export default function PosPage() {
                 <span>Cash</span>
               </button>
               <button
-                onClick={() => setPaymentMethod("Credit Card")}
+                onClick={() => setPaymentMethod("Credit / Debit Card")}
                 className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
-                  paymentMethod === "Credit Card"
+                  paymentMethod === "Credit / Debit Card"
                     ? "bg-white text-indigo-700 border-b-2 border-indigo-600"
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
                 <CreditCard size={15} />
-                <span>Card Terminal</span>
-              </button>
-              <button
-                onClick={() => setPaymentMethod("QR Pay")}
-                className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors ${
-                  paymentMethod === "QR Pay"
-                    ? "bg-white text-rose-700 border-b-2 border-rose-600"
-                    : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                <QrCode size={15} />
-                <span>QR Pay</span>
+                <span>Credit / Debit Card</span>
               </button>
             </div>
 
@@ -1292,13 +1280,13 @@ export default function PosPage() {
                 </div>
               )}
 
-              {paymentMethod === "Credit Card" && (
+              {paymentMethod === "Credit / Debit Card" && (
                 <div className="space-y-3 text-center py-4">
                   <div className="w-14 h-14 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-2">
                     <CreditCard size={28} />
                   </div>
                   <h4 className="font-bold text-sm text-slate-800">
-                    Ready for Card Terminal
+                    Credit / Debit Card Payment
                   </h4>
                   <p className="text-xs text-slate-500 max-w-xs mx-auto">
                     Please swipe, insert chip, or tap customer card on the POS reader device.
@@ -1306,28 +1294,6 @@ export default function PosPage() {
                   <div className="inline-flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-lg text-xs font-mono text-slate-600">
                     <span>Terminal #01: Ready</span>
                     <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  </div>
-                </div>
-              )}
-
-              {paymentMethod === "QR Pay" && (
-                <div className="space-y-3 text-center py-2">
-                  <div className="p-3 bg-white border border-slate-200 rounded-2xl inline-block shadow-xs">
-                    {/* Simulated Dynamic Payment QR */}
-                    <div className="w-36 h-36 bg-slate-900 rounded-xl flex flex-col items-center justify-center text-white p-2">
-                      <QrCode size={80} className="text-white mb-1" />
-                      <span className="text-[10px] font-mono font-bold tracking-wider">
-                        SCAN TO PAY
-                      </span>
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-xs text-slate-700 font-bold block">
-                      Amount: ${grandTotal.toFixed(2)}
-                    </span>
-                    <span className="text-[11px] text-slate-400">
-                      Scan with Bakong, ABA Mobile, or Bank App
-                    </span>
                   </div>
                 </div>
               )}
@@ -1887,16 +1853,6 @@ export default function PosPage() {
                         </span>
                         <span className="font-bold text-slate-800">
                           ${Number(dailySummary.today_card_sales).toFixed(2)}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
-                        <span className="flex items-center gap-1.5 text-slate-600">
-                          <QrCode size={14} className="text-rose-600" />
-                          QR / Mobile Pay
-                        </span>
-                        <span className="font-bold text-slate-800">
-                          ${Number(dailySummary.today_qr_sales).toFixed(2)}
                         </span>
                       </div>
                     </div>

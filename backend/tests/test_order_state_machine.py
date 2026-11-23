@@ -385,7 +385,7 @@ def test_invalid_order_and_payment_status_values_rejected(client, headers, admin
 
 @pytest.mark.parametrize(
     "electronic_method",
-    ["KHQR Scan & Pay", "Credit / Debit Card", "Apple Pay"],
+    ["Credit / Debit Card"],
 )
 def test_unverified_electronic_payment_cannot_be_marked_paid(
     client, headers, admin_headers, electronic_method
@@ -410,6 +410,23 @@ def test_unverified_electronic_payment_cannot_be_marked_paid(
     with SessionLocal() as db:
         persisted = db.get(Order, oid)
         assert persisted.payment_status == "pending"
+
+
+@pytest.mark.parametrize(
+    "deprecated_method",
+    ["KHQR Scan & Pay", "ABA / KHQR Pay", "Apple Pay", "QR Pay"],
+)
+def test_deprecated_payment_methods_are_rejected(client, headers, deprecated_method):
+    res = client.post(
+        "/api/v1/orders",
+        headers=headers(2),
+        json={
+            "shipping_address": "123 Test St, Phnom Penh",
+            "payment_method": deprecated_method,
+            "items": [{"product_id": 1, "quantity": 1}],
+        },
+    )
+    assert res.status_code == 400
 
 
 def test_cancelled_order_cannot_be_marked_paid(client, headers, admin_headers):
@@ -501,7 +518,7 @@ def test_combined_status_and_invalid_payment_update_rolls_back_atomically(
         client,
         headers(2),
         items=[(1, 1)],
-        payment_method="KHQR Scan & Pay",
+        payment_method="Credit / Debit Card",
     )
     oid = order["id"]
 

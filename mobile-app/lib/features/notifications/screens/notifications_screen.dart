@@ -418,13 +418,13 @@ class NotificationsScreen extends StatelessWidget {
             ] else ...[
               const SizedBox(height: 20),
               BouncingButton(
-                key: const Key('restore_notifications_button'),
+                key: const Key('refresh_notifications_button'),
                 onTap: () {
-                  provider.resetDemoNotifications();
+                  provider.loadNotifications(silent: false);
                   ScaffoldMessenger.of(context).hideCurrentSnackBar();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Sample notifications restored'),
+                      content: Text('Refreshing notifications...'),
                       duration: Duration(seconds: 1),
                       behavior: SnackBarBehavior.floating,
                     ),
@@ -454,7 +454,7 @@ class NotificationsScreen extends StatelessWidget {
                       ),
                       SizedBox(width: 8),
                       Text(
-                        'Restore Sample Notifications',
+                        'Refresh Notifications',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w700,

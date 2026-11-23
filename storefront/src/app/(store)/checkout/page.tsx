@@ -13,9 +13,7 @@ import {
   CreditCard,
   Lock,
   PackageCheck,
-  QrCode,
   ShieldCheck,
-  Smartphone,
   Tag,
   Truck,
   UserCheck,
@@ -26,31 +24,36 @@ import {
   cartApi,
   couponsApi,
   ordersApi,
+  paymentsApi,
+  settingsApi,
   type ApiAddress,
+  type ApiCardPaymentIntent,
   type ApiCoupon,
   type ApiOrder,
 } from "@/lib/api";
+import StripeCardPaymentPanel from "@/components/store/StripeCardPaymentPanel";
 import { getCurrentUser, isLoggedIn } from "@/lib/auth";
 import {
   CHECKOUT_PAYMENT_METHODS,
   clearDurableCheckoutKey,
+  completeCardCheckoutConfirmation,
   createCheckoutSubmissionLock,
   DEFAULT_CHECKOUT_PAYMENT_METHOD,
   executeCheckoutOrder,
   getOrCreateDurableCheckoutKey,
   getOrderPaymentPresentation,
+  isCardPaymentMethod,
 } from "@/lib/checkout-security";
 import { getEffectivePrice, resolveProductImage } from "@/lib/store-catalog";
 import {
   getCartTotals,
   useShopStore,
+  type StoreShippingRules,
 } from "@/lib/store";
 
 const PAYMENT_METHOD_ICONS: Record<string, LucideIcon> = {
   "Cash on Delivery": Banknote,
-  "KHQR Scan & Pay": QrCode,
   "Credit / Debit Card": CreditCard,
-  "Apple Pay": Smartphone,
 };
 
 export default function CheckoutPage() {
@@ -80,15 +83,61 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState(
     DEFAULT_CHECKOUT_PAYMENT_METHOD
   );
+  const [cardGatewayConfigured, setCardGatewayConfigured] = useState(false);
+  const [enableCardPayment, setEnableCardPayment] = useState(true);
+  const [enableCodPayment, setEnableCodPayment] = useState(true);
+  const [shippingRules, setShippingRules] = useState<StoreShippingRules>({});
+  const [estimatedDeliveryDays, setEstimatedDeliveryDays] = useState("1-3");
+  const [stripePublishableKey, setStripePublishableKey] = useState<string | null>(null);
+  const [pendingCardPayment, setPendingCardPayment] = useState<{
+    order: ApiOrder;
+    cardIntent: ApiCardPaymentIntent;
+  } | null>(null);
   const [promoInput, setPromoInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [couponLoading, setCouponLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [placedOrder, setPlacedOrder] = useState<ApiOrder | null>(null);
 
-  const totals = getCartTotals(items, appliedCoupon);
+  const totals = getCartTotals(items, appliedCoupon, shippingRules);
   const authenticated = isLoggedIn();
   const currentUser = getCurrentUser();
+
+  useEffect(() => {
+    let active = true;
+    settingsApi
+      .getPublic()
+      .then((res) => {
+        if (!active || !res.success || !res.data) return;
+        const cfg = res.data;
+        const parsedMin = Number(cfg.free_shipping_min);
+        const parsedFee = Number(cfg.standard_shipping_fee);
+        setShippingRules({
+          freeShippingThreshold: Number.isFinite(parsedMin) ? parsedMin : undefined,
+          standardShippingFee: Number.isFinite(parsedFee) ? parsedFee : undefined,
+        });
+        if (cfg.estimated_delivery_days) {
+          setEstimatedDeliveryDays(cfg.estimated_delivery_days);
+        }
+        const allowCard = cfg.enable_card_payment !== false;
+        const allowCod = cfg.enable_cod_payment !== false;
+        setEnableCardPayment(allowCard);
+        setEnableCodPayment(allowCod);
+        setPaymentMethod((prev) => {
+          if (isCardPaymentMethod(prev) && !allowCard && allowCod) {
+            return "Cash on Delivery";
+          }
+          if (!isCardPaymentMethod(prev) && !allowCod && allowCard) {
+            return "Credit / Debit Card";
+          }
+          return prev;
+        });
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Populate user data and fetch saved addresses / coupons
   useEffect(() => {
@@ -120,7 +169,61 @@ export default function CheckoutPage() {
         }
       })
       .catch(() => {});
+
+    paymentsApi
+      .getConfig()
+      .then((res) => {
+        if (res.success && res.data) {
+          setCardGatewayConfigured(Boolean(res.data.card_gateway_configured));
+          setStripePublishableKey(res.data.stripe_publishable_key || null);
+        }
+      })
+      .catch(() => {});
   }, [authenticated, currentUser]);
+
+  // Complete 3DS bank-redirect confirmation when returning with ?order_id=&payment_intent=
+  useEffect(() => {
+    if (!authenticated || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const paymentIntentId = params.get("payment_intent");
+    const redirectStatus = params.get("redirect_status");
+    const orderIdParam = params.get("order_id");
+    if (!paymentIntentId || !orderIdParam || redirectStatus !== "succeeded") return;
+    const parsedOrderId = Number(orderIdParam);
+    if (!Number.isInteger(parsedOrderId) || parsedOrderId <= 0) return;
+
+    let active = true;
+    (async () => {
+      try {
+        const orderRes = await ordersApi.get(parsedOrderId);
+        if (!active || !orderRes.success || !orderRes.data) return;
+        const confirmed = await completeCardCheckoutConfirmation({
+          order: orderRes.data,
+          paymentIntentId,
+          confirmCardPayment: paymentsApi.confirmCardPayment,
+          clearClientCart: clearCart,
+        });
+        if (!active) return;
+        clearDurableCheckoutKey();
+        checkoutIdempotencyKeyRef.current = null;
+        window.history.replaceState({}, "", "/checkout");
+        setPendingCardPayment(null);
+        setPlacedOrder(confirmed);
+      } catch (err: unknown) {
+        if (active) {
+          setErrorMessage(
+            err instanceof Error
+              ? err.message
+              : "Could not verify returned card authorization."
+          );
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [authenticated, clearCart]);
 
   const handleApplyCoupon = async (codeToApply?: string) => {
     const code = (codeToApply || promoInput).trim().toUpperCase();
@@ -149,8 +252,9 @@ export default function CheckoutPage() {
     }
   };
 
-  const selectedPaymentMeta = CHECKOUT_PAYMENT_METHODS.find((pm) => pm.id === paymentMethod);
-  const isDemoPayment = selectedPaymentMeta?.isDemo ?? false;
+  const isCardSelected = isCardPaymentMethod(paymentMethod);
+  const cardBlocked = isCardSelected && (!enableCardPayment || !cardGatewayConfigured);
+  const codBlocked = !isCardSelected && !enableCodPayment;
 
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,9 +267,23 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (isDemoPayment) {
+    if (isCardSelected && !enableCardPayment) {
       setErrorMessage(
-        "Live payment gateway capture for this method is not integrated yet. Please select Cash on Delivery (COD) to place your order."
+        "Credit / Debit Card checkout is currently disabled by store settings."
+      );
+      return;
+    }
+
+    if (codBlocked) {
+      setErrorMessage(
+        "Cash on Delivery is currently disabled by store settings. Please choose another enabled payment method."
+      );
+      return;
+    }
+
+    if (cardBlocked) {
+      setErrorMessage(
+        "Live Credit / Debit Card gateway is not configured on the server yet. Please select Cash on Delivery (COD) to place your order."
       );
       return;
     }
@@ -231,6 +349,8 @@ export default function CheckoutPage() {
               }
             : undefined,
         paymentMethod,
+        cardGatewayConfigured,
+        deferCartClearForCardConfirmation: isCardSelected && cardGatewayConfigured,
         phone: phone.trim() || undefined,
         fullName: fullName.trim() || undefined,
         couponCode: appliedCoupon?.code || undefined,
@@ -239,11 +359,20 @@ export default function CheckoutPage() {
           createAddress: addressesApi.create,
           reconcileServerCart: cartApi.reconcile,
           createOrder: ordersApi.create,
+          createCardIntent: cardGatewayConfigured ? paymentsApi.createCardIntent : undefined,
           clearClientCart: clearCart,
         },
       });
 
       if (result.status === "duplicate_blocked") {
+        return;
+      }
+
+      if (result.status === "requires_card_confirmation") {
+        setPendingCardPayment({
+          order: result.order,
+          cardIntent: result.cardIntent,
+        });
         return;
       }
 
@@ -266,6 +395,25 @@ export default function CheckoutPage() {
         setSubmitting(false);
       }
     }
+  };
+
+  const handleCardPaymentSucceeded = async (paymentIntentId: string) => {
+    if (!pendingCardPayment) return;
+    const confirmedOrder = await completeCardCheckoutConfirmation({
+      order: pendingCardPayment.order,
+      paymentIntentId,
+      confirmCardPayment: paymentsApi.confirmCardPayment,
+      clearClientCart: clearCart,
+    });
+    clearDurableCheckoutKey();
+    checkoutIdempotencyKeyRef.current = null;
+    setPendingCardPayment(null);
+    setPlacedOrder(confirmedOrder);
+    pushToast({
+      title: `Payment Confirmed for Order #${confirmedOrder.id}!`,
+      description: "Your Credit / Debit Card payment has been verified.",
+      tone: "success",
+    });
   };
 
   // ==========================================
@@ -416,6 +564,33 @@ export default function CheckoutPage() {
               </Link>
             </div>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (pendingCardPayment) {
+    const resolvedPublishableKey =
+      pendingCardPayment.cardIntent.publishable_key ||
+      stripePublishableKey ||
+      "";
+    return (
+      <div className="min-h-[75vh] bg-[#F5F8FD]/60 py-12 sm:py-16">
+        <div className="bp-container">
+          <StripeCardPaymentPanel
+            orderId={pendingCardPayment.order.id}
+            amount={Number(pendingCardPayment.cardIntent.amount || pendingCardPayment.order.total)}
+            currency={pendingCardPayment.cardIntent.currency || "USD"}
+            clientSecret={pendingCardPayment.cardIntent.client_secret}
+            publishableKey={resolvedPublishableKey}
+            onPaymentSucceeded={handleCardPaymentSucceeded}
+            onCancelCardStep={() => {
+              setPendingCardPayment(null);
+              setErrorMessage(
+                `Order #${pendingCardPayment.order.id} is saved as unpaid. Complete card payment or choose Cash on Delivery.`
+              );
+            }}
+          />
         </div>
       </div>
     );
@@ -811,7 +986,7 @@ export default function CheckoutPage() {
                       )}
                     </div>
                     <p className="text-xs text-slate-500 mt-0.5">
-                      1–3 business days standard courier dispatch with fragile electronics handling.
+                      {estimatedDeliveryDays} business days standard courier dispatch with fragile electronics handling.
                     </p>
                     {totals.amountToFreeShipping > 0 ? (
                       <p className="text-xs font-bold text-brand mt-1.5">
@@ -819,7 +994,7 @@ export default function CheckoutPage() {
                       </p>
                     ) : (
                       <p className="text-xs font-bold text-emerald-700 mt-1.5 flex items-center gap-1">
-                        <Check size={12} /> Free shipping requirement satisfied ($100+ order).
+                        <Check size={12} /> Free shipping requirement satisfied (${totals.freeShippingThreshold.toFixed(0)}+ order).
                       </p>
                     )}
                   </div>
@@ -848,24 +1023,45 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <fieldset className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <legend className="sr-only">Choose a payment method</legend>
                 {CHECKOUT_PAYMENT_METHODS.map((pm) => {
                   const Icon = PAYMENT_METHOD_ICONS[pm.id] || CreditCard;
                   const active = paymentMethod === pm.id;
+                  const isCard = isCardPaymentMethod(pm.id);
+                  const methodEnabled = isCard ? enableCardPayment : enableCodPayment;
+                  const badgeLabel = !methodEnabled
+                    ? "DISABLED"
+                    : isCard
+                    ? cardGatewayConfigured
+                      ? "ACTIVE"
+                      : "SETUP REQUIRED"
+                    : "ACTIVE";
+                  const badgeTone = !methodEnabled
+                    ? "bg-slate-200 text-slate-600"
+                    : isCard && !cardGatewayConfigured
+                    ? "bg-amber-100 text-amber-800"
+                    : "bg-emerald-100 text-emerald-800";
+
                   return (
                     <label
                       key={pm.id}
-                      className={`flex items-start gap-3 p-4 rounded-2xl border cursor-pointer transition ${
-                        active
-                          ? "border-brand bg-blue-50/50 ring-2 ring-[#245BE7]/20"
-                          : "border-line-strong bg-white hover:border-ink"
+                      className={`flex items-start gap-3 p-4 rounded-2xl border transition ${
+                        !methodEnabled
+                          ? "opacity-55 cursor-not-allowed border-slate-200 bg-slate-50"
+                          : active
+                          ? "cursor-pointer border-brand bg-blue-50/50 ring-2 ring-[#245BE7]/20"
+                          : "cursor-pointer border-line-strong bg-white hover:border-ink"
                       }`}
                     >
                       <input
                         type="radio"
                         name="payment-method"
+                        disabled={!methodEnabled}
                         checked={active}
-                        onChange={() => setPaymentMethod(pm.id)}
+                        onChange={() => {
+                          if (methodEnabled) setPaymentMethod(pm.id);
+                        }}
                         className="mt-1 h-4 w-4 accent-brand"
                       />
                       <div className="flex-1 min-w-0">
@@ -874,15 +1070,9 @@ export default function CheckoutPage() {
                           <span className="text-xs font-bold text-ink">
                             {pm.title}
                           </span>
-                          {pm.badge ? (
-                            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold uppercase tracking-wider">
-                              {pm.badge}
-                            </span>
-                          ) : (
-                            <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[11px] font-bold uppercase tracking-wider">
-                              ACTIVE
-                            </span>
-                          )}
+                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${badgeTone}`}>
+                            {badgeLabel}
+                          </span>
                         </div>
                         <p className="text-xs text-slate-500 mt-1 leading-snug">
                           {pm.subtitle}
@@ -891,15 +1081,21 @@ export default function CheckoutPage() {
                     </label>
                   );
                 })}
-              </div>
+              </fieldset>
 
-              {/* Informative notice for Sandbox / Demo methods */}
-              {CHECKOUT_PAYMENT_METHODS.find((pm) => pm.id === paymentMethod)?.isDemo && (
+              {cardBlocked && (
                 <div className="p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
                   <Clock size={16} className="text-amber-600 shrink-0 mt-0.5" />
                   <p className="leading-relaxed">
-                    <strong>Sandbox Preview Method:</strong> Live payment gateway capture is currently in demonstration mode. Your order will be placed with payment status{" "}
-                    <strong className="underline">Pending Verification</strong>.
+                    {!enableCardPayment ? (
+                      <>
+                        <strong>Card Payments Disabled:</strong> Credit / Debit Card checkout is disabled in store settings. Switch to <strong>Cash on Delivery (COD)</strong>.
+                      </>
+                    ) : (
+                      <>
+                        <strong>Card Gateway Not Configured:</strong> Configure Stripe API credentials on the backend to accept live Credit / Debit Card payments, or switch to <strong>Cash on Delivery (COD)</strong>.
+                      </>
+                    )}
                   </p>
                 </div>
               )}
@@ -1070,7 +1266,7 @@ export default function CheckoutPage() {
                 <Lock size={16} aria-hidden="true" />
                 Sign in to place order · ${totals.total.toFixed(2)}
               </Link>
-            ) : isDemoPayment ? (
+            ) : cardBlocked || codBlocked ? (
               <div className="space-y-2">
                 <button
                   type="button"
@@ -1079,10 +1275,16 @@ export default function CheckoutPage() {
                   className="bp-press min-h-13 w-full px-6 rounded-xl bg-slate-100 border border-slate-200 text-slate-400 text-sm font-bold flex items-center justify-center gap-2 cursor-not-allowed shadow-none"
                 >
                   <Lock size={16} aria-hidden="true" />
-                  Online payment is not available yet
+                  {codBlocked
+                    ? "Cash on Delivery disabled in settings"
+                    : !enableCardPayment
+                    ? "Card payments disabled in settings"
+                    : "Card gateway not configured yet"}
                 </button>
                 <p className="text-xs text-center text-amber-800 font-bold bg-amber-50 py-2 px-3 rounded-xl border border-amber-200">
-                  Select <strong>Cash on Delivery (COD)</strong> above to proceed with your order.
+                  {codBlocked
+                    ? "Select Credit / Debit Card above to proceed with your order."
+                    : "Select Cash on Delivery (COD) above to proceed with your order."}
                 </p>
               </div>
             ) : (

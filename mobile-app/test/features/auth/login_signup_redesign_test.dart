@@ -6,7 +6,6 @@ import 'package:e_commerc_mobile_app/features/auth/providers/auth_provider.dart'
 import 'package:e_commerc_mobile_app/features/auth/screens/login_screen.dart';
 import 'package:e_commerc_mobile_app/features/auth/screens/sign_up_screen.dart';
 import 'package:e_commerc_mobile_app/features/auth/services/auth_service.dart';
-import 'package:e_commerc_mobile_app/features/auth/widgets/social_login_section.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -44,15 +43,9 @@ void main() {
       // Main action button
       expect(find.text('Login'), findsOneWidget);
 
-      // Social login section
-      expect(find.byType(SocialLoginSection), findsOneWidget);
-      expect(find.text('or'), findsOneWidget);
-      expect(
-        find.text('Join With Your Favourite Social Media Account'),
-        findsOneWidget,
-      );
-      expect(find.byIcon(Icons.facebook), findsOneWidget);
-      expect(find.byIcon(Icons.apple), findsOneWidget);
+      // Placeholder social login buttons must not be rendered
+      expect(find.byIcon(Icons.facebook), findsNothing);
+      expect(find.byIcon(Icons.apple), findsNothing);
 
       // Legal notice
       expect(find.textContaining("Terms of Service"), findsOneWidget);
@@ -198,9 +191,8 @@ void main() {
 
       // Main action button
       expect(find.text('Create Account'), findsOneWidget);
-
-      // Social login section
-      expect(find.byType(SocialLoginSection), findsOneWidget);
+      expect(find.byIcon(Icons.facebook), findsNothing);
+      expect(find.byIcon(Icons.apple), findsNothing);
     });
 
     testWidgets('Tapping Sign in switches to LoginScreen', (
@@ -295,38 +287,6 @@ void main() {
       expect(authProvider.isAuthenticated, isFalse);
       expect(find.text('Main Navigation'), findsNothing);
       expect(find.byType(SnackBar), findsOneWidget);
-    });
-
-    testWidgets('Social buttons on LoginScreen and SignUpScreen never save fake tokens', (
-      WidgetTester tester,
-    ) async {
-      final authProvider = AuthProvider();
-
-      await tester.pumpWidget(
-        ChangeNotifierProvider.value(
-          value: authProvider,
-          child: MaterialApp(
-            routes: {
-              '/main-nav': (_) => const Scaffold(body: Text('Main Navigation')),
-            },
-            home: const LoginScreen(),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final loginAppleBtn = find.byIcon(Icons.apple);
-      await tester.ensureVisible(loginAppleBtn);
-      await tester.tap(loginAppleBtn);
-      await tester.pumpAndSettle();
-
-      expect(authProvider.isAuthenticated, isFalse);
-      expect(authProvider.token, isNull);
-      expect(find.text('Main Navigation'), findsNothing);
-      expect(find.textContaining('not configured yet'), findsOneWidget);
-
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getString('auth_token'), isNull);
     });
   });
 }
